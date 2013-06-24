@@ -1,8 +1,6 @@
 {
   "name": "easy-pg",
-  "version": "0.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.0.1",
   "scripts": {
     "test": "mocha --compilers coffee:coffee-script --require test/test_helper.coffee --reporter spec"
   },
