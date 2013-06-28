@@ -214,16 +214,19 @@ class Db extends EventEmitter
 
 
 
-
+	###
+	Updates specified "table" using given "data"
+	require "table", "data", "where", "done"
+	###
 	update: (table, data, where, whereData, done) ->
-		# if typeof whereData is 'function'
-	# 		done = whereData
-	# 		whereData = []
-	#
-	# 	keys = []
-	# 	valIds = []
-	# 	values = []
-	# 	i = 1
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+	
+	keys = []
+	valIds = []
+	values = []
+	i = 1
 	#
 	# 	sets = []
 	# 	for key, val of data
