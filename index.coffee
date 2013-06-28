@@ -1,5 +1,3 @@
-{QueryObject} = require "./queryObject.coffee"
-
 setImmediate = setImmediate ? process.nextTick
 module.exports = (connString, options) ->
 	return new Db connString, options
@@ -8,13 +6,15 @@ module.exports = (connString, options) ->
 # util = require 'util'
 pg = require "pg" # . native TODO
 {EventEmitter} = require "events"
+{QueryObject} = require "./queryObject.coffee"
 # colors = require 'colors'
 # url = require 'url'
 
 class Db extends EventEmitter
 
 	# needs connection string for postgresql
-	# immediateStart = true makes db connection star right now
+	# later probably just options object
+	# options.lazy = false makes db connection star right now
 	constructor: (connString, options={}) ->
 		@connectionString = connString #client's connection string
 		@state = "offline" #client's connection state
@@ -22,9 +22,6 @@ class Db extends EventEmitter
 
 		@tryToConnect() if options.lazy is false
 		
-
-		# setImmediate =>
-		# 	@emit 'error', new Error "couldn't connect to ..."
 
 		# @TODO setdate style
 		# 	@query """ SET datestyle = "iso, mdy" """
@@ -97,6 +94,7 @@ class Db extends EventEmitter
 			when "57" then true # Operator Intervention
 			else return false   #unacceptable error class
 
+
 	###
 	Pushes given input into queue for later dispatching
 	requires "type" and "query"
@@ -126,6 +124,7 @@ class Db extends EventEmitter
 		@queue.push qObj #register another query
 		@queuePull() if @queue.length is 1 #process first query in the queue
 
+
 	###
 	Dispatches first query in the queue if its not empty
 	Tries to connect to db if the client state is "offline"
@@ -142,26 +141,33 @@ class Db extends EventEmitter
 		console.log q.toString() for q in @queue
 		console.log "---------------------------"
 
+
 	###
 	Returns full DB result with data in the ".rows" entry
 	requires just "query"
 	###
 	query: (query, values, done) =>
+
 		@queuePush "QueryRaw", query, values, done
+
 
 	###
 	Returns null or only the first row of the original DB result
 	requires just "query"
 	###
 	queryOne: (query, values, done) =>
+
 		@queuePush "QueryOne", query, values, done
+
 
 	###
 	Returns null or array of rows of the original DB result
 	requires just "query"
 	###
 	queryAll: (query, values, done) =>
+
 		@queuePush "QueryAll", query, values, done
+
 
 	###
 	Inserts "data" into specified "table"
@@ -181,6 +187,58 @@ class Db extends EventEmitter
 		query = "INSERT INTO #{table} (#{keys.join ', '}) VALUES (#{valIds.join ', '}) RETURNING *"
 		@queryOne query, values, done
 
+
+	###
+	Updates specified "table" using given "data"
+	requires "table", "data", "where", "done"
+	###
+	update: (table, data, where, whereData, done) =>
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+	
+			keys = []
+			valIds = []
+			values = []
+			i = 1
+
+		sets = []
+		for key, val of data
+			sets.push "#{key} = $#{i++}"
+			values.push val
+
+		where = where.replace /\$(\d+)/g, (match, id) ->
+			"$" + (i - 1 + parseInt(id))
+
+		for val in whereData
+			values.push val
+
+		query = "UPDATE #{table} SET #{sets.join ', '} WHERE #{where} RETURNING *"
+	
+		@queryOne query, values, done
+	
+
+	###
+	Starts a transaction block
+	###
+	begin: (done) =>
+
+		@query "BEGIN", done
+
+
+	###
+	Commits current transaction
+	###
+	commit: (done) =>
+
+		@query "COMMIT", done
+
+	###
+	Aborts current transaction
+	###
+	rollback: (done) =>
+
+		@query "ROLLBACK", done
 
 
 	paginate: (offset, limit, cols, query, values, done) =>
@@ -211,38 +269,6 @@ class Db extends EventEmitter
 
 				return done null, o
 
-
-
-
-	###
-	Updates specified "table" using given "data"
-	require "table", "data", "where", "done"
-	###
-	update: (table, data, where, whereData, done) ->
-		if typeof whereData is "function"
-			done = whereData
-			whereData = []
-	
-	keys = []
-	valIds = []
-	values = []
-	i = 1
-	#
-	# 	sets = []
-	# 	for key, val of data
-	# 		sets.push "#{key} = $#{i++}"
-	# 		values.push val
-	#
-	# 	where = where.replace /\$(\d+)/g, (match, id) ->
-	# 		"$" + (i - 1 + parseInt(id))
-	#
-	# 	for val in whereData
-	# 		values.push val
-	#
-	# 	q = "UPDATE #{table} SET #{sets.join ', '} WHERE #{where} RETURNING *"
-	#
-	# 	@queryOne q, values, done
-	#
 	# upsert: (table, data, where, whereData, done) ->
 	# 	update = no
 	# 	if Array.isArray whereData
@@ -255,7 +281,7 @@ class Db extends EventEmitter
 	# 		@update table, data, where, whereData, done
 	# 	else
 	# 		@insert table, data, done
-	#
+
 	upsert: (table, data, where, whereData, done) ->
 		# console.log 'Where data'.log
 	# 	util.log util.inspect whereData
@@ -277,13 +303,4 @@ class Db extends EventEmitter
 		# 	@update table, data, where, whereData, done
 		# else
 		# 	@insert table, data, done
-
-	begin: (done) ->
-		# @query "BEGIN", [], done
-
-	commit: (done) ->
-		# @query "COMMIT", [], done
-
-	rollback: (done) ->
-		# @query "ROLLBACK", [], done
 
