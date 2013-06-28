@@ -11,5 +11,9 @@
     "mocha": "~1.11.0",
     "chai": "~1.7.1",
     "coffee-script": "~1.6.3"
+    "pg": "~2.0.0"
+  },
+  "dependencies": {
+    "pg": "~2.0.0"
   }
 }
