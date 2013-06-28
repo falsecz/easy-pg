@@ -1,9 +1,9 @@
 pg = require '../'
 
-describe 'Initialization', ->
+describe 'Immediate initialization', ->
 
 	it 'create instance', () ->
-		db = pg "pgsql://127.0.0.1:5432/db"
+		db = pg "pg://postgres:123456@localhost:5432/TestDB", lazy: no
 		db.on 'error', -> #ignore
 
 		assert.isObject db, 'db must be an object'
@@ -21,17 +21,13 @@ describe 'Initialization', ->
 		for f in fn
 			assert.isFunction db[f], "must have #{f} function"
 
-
 	it "emit error on couldn't connect", (done) ->
-		db = pg "pgsql://9.9.9.9:5432/db"
+		db = pg "pg://postgres:123456@localhost:5432/unknownDB", lazy: no
 		db.on 'error', (err) ->
 			done()
-			# console.log err
 
 	it 'emit ready on successfull connection', (done) ->
-		db = pg "pgsql://127.0.0.1:5432/db"
+		db = pg "pg://postgres:123456@localhost:5432/TestDB", lazy: no
 		db.on 'error', -> #ignore
 		db.on 'ready', (err) ->
 			done()
-
-

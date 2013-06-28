@@ -1,22 +1,30 @@
-setImmediate = setImmediate ? process.nextTick
-module.exports = (connString) ->
-	return new Db
+{QueryObject} = require "./queryObject.coffee"
 
+setImmediate = setImmediate ? process.nextTick
+module.exports = (connString, options) ->
+	return new Db connString, options
 
 # class Db
 # util = require 'util'
-# pg = require('pg') # . native TODO
-{EventEmitter} = require 'events'
+pg = require "pg" # . native TODO
+{EventEmitter} = require "events"
 # colors = require 'colors'
 # url = require 'url'
 
 class Db extends EventEmitter
 
-	constructor: () ->
+	# needs connection string for postgresql
+	# immediateStart = true makes db connection star right now
+	constructor: (connString, options={}) ->
+		@connectionString = connString #client's connection string
+		@state = "offline" #client's connection state
+		@queue = []  #client's queue for queries
 
+		@tryToConnect() if options.lazy is false
+		
 
-		setImmediate =>
-			@emit 'error', new Error "couldn't connect to ..."
+		# setImmediate =>
+		# 	@emit 'error', new Error "couldn't connect to ..."
 
 		# @TODO setdate style
 		# 	@query """ SET datestyle = "iso, mdy" """
@@ -52,16 +60,127 @@ class Db extends EventEmitter
 
 		# @client.connect()
 
-	queryOne: (query, values, done) =>
-		# @query query, values, (err, result) ->
-		# 	result = result?.rows?[0]
-		# 	result ?= null
-		# 	done? err, result
+		#create and connect new psql client
+		
+	###
+	Tries to connect to DB. If connection drops or some
+	error occures, tries it later
+	###
+	tryToConnect: () =>
+		@state = "connecting"
+		@client = new pg.Client @connectionString
+		@client.connect (err, client) =>
+			if err #register request for later connection
+				@emit "error", err.toString() #new Error "connection failed ..."
+				setTimeout @tryToConnect, 2000
+			else
+				client.on "error", (err) => #try to connect again immediately
+					@emit "error", err.toString() #new Error "connection lost..."
+					@tryToConnect()
 
-	queryAll: (query, values, done) ->
-		# console.log query, values
-		# @query query, values, (err, result) ->
-		# 	done? err, result?.rows
+				@state = "online"
+				@emit "ready"
+				@queuePull()   #process first query in the queue immediately
+
+	###
+	Returns true if the given postgresql error code
+	is acceptable = there is no reason to remove query
+	with this code from our queue or to throw error
+	###
+	acceptable = (code) ->
+		return false unless code?
+		errClass = code.slice(0, 2)
+		console.log "err class: " + errClass
+		switch errClass         #first two signs describe error class
+			when "00" then true # Successful Completion
+			when "08" then true # Connection Exception
+			when "57" then true # Operator Intervention
+			else return false   #unacceptable error class
+
+	###
+	Pushes given input into queue for later dispatching
+	requires "type" and "query"
+	###
+	queuePush: (type, query, values, done) =>
+		#for the case of calling (type, query, done)
+		if typeof values is "function"
+			done = values
+			values = null
+
+		#create object with special callback to remove query from queue when it is processed
+		qObj = new QueryObject type, query, values, (err, result) =>
+			console.log "callBack"
+			#remove first querry from queue (it is processed now)
+			#if it is OK or error is on our side
+			console.log "acceptable code: "+acceptable err.code if err?
+			unless acceptable err?.code
+				@queue.shift()
+				done? err, result
+
+			else #try the failed query with acceptable code again
+				@printQueue()
+				console.log @state, @client
+
+			@queuePull()   #process next in the queue
+
+		@queue.push qObj #register another query
+		@queuePull() if @queue.length is 1 #process first query in the queue
+
+	###
+	Dispatches first query in the queue if its not empty
+	Tries to connect to db if the client state is "offline"
+	###
+	queuePull: () =>
+		console.log "queuePull"
+		if @queue.length > 0
+			@queue[0].callBy @client if @state is "online"
+			@tryToConnect() if @state is "offline"
+
+
+	printQueue: () =>
+		console.log "---------------------------"
+		console.log q.toString() for q in @queue
+		console.log "---------------------------"
+
+	###
+	Returns full DB result with data in the ".rows" entry
+	requires just "query"
+	###
+	query: (query, values, done) =>
+		@queuePush "QueryRaw", query, values, done
+
+	###
+	Returns null or only the first row of the original DB result
+	requires just "query"
+	###
+	queryOne: (query, values, done) =>
+		@queuePush "QueryOne", query, values, done
+
+	###
+	Returns null or array of rows of the original DB result
+	requires just "query"
+	###
+	queryAll: (query, values, done) =>
+		@queuePush "QueryAll", query, values, done
+
+	###
+	Inserts "data" into specified "table"
+	requires "table" and "data"
+	###
+	insert: (table, data, done) =>
+		keys = []
+		valIds = []
+		values = []
+		i = 1
+		
+		for key, val of data
+			keys.push key
+			values.push val
+			valIds.push "$#{i++}"
+
+		query = "INSERT INTO #{table} (#{keys.join ', '}) VALUES (#{valIds.join ', '}) RETURNING *"
+		@queryOne query, values, done
+
 
 
 	paginate: (offset, limit, cols, query, values, done) =>
@@ -95,47 +214,6 @@ class Db extends EventEmitter
 
 
 
-
-
-
-	query: (query, values, done) ->
-		# done = values unless values
-		#
-		# # console.log query.yellow
-		# @client.query query, values, (err, result) =>
-		# 	console.log "DONE " +  query.yellow + " " + values
-		# 	if err
-		# 		# @emit 'error',
-		# 		# 	err: err
-		# 		# 	query: query
-		# 		# 	values: values
-		#
-		# 		util.log "#{query}".red
-		# 		util.log "#{values}".red
-		# 		util.log "#{err}".red
-		# 		err =
-		# 			message: "#{err}"
-		# 			values: "#{values}"
-		# 			query: "#{query}"
-		#
-		# 	# util.log util.inspect result.rows
-		# 	return done? err, result
-
-	insert: (table, data, done) ->
-		# keys = []
-		# valIds = []
-		# values = []
-		# i = 1
-		#
-		# for key, val of data
-		# 	keys.push key
-		# 	values.push val
-		# 	valIds.push "$#{i++}"
-		#
-		#
-		# q = "INSERT INTO #{table} (#{keys.join ', '}) VALUES (#{valIds.join ', '}) RETURNING *"
-		#
-		# @queryOne q, values, done
 
 	update: (table, data, where, whereData, done) ->
 		# if typeof whereData is 'function'
