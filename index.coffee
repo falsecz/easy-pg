@@ -1,3 +1,5 @@
+debug = require('debug') 'easy-pg'
+
 setImmediate = setImmediate ? process.nextTick
 module.exports = (connString, options) ->
 	return new Db connString, options
@@ -21,7 +23,7 @@ class Db extends EventEmitter
 		@queue = []  #client's queue for queries
 
 		@tryToConnect() if options.lazy is false
-		
+
 
 		# @TODO setdate style
 		# 	@query """ SET datestyle = "iso, mdy" """
@@ -58,7 +60,7 @@ class Db extends EventEmitter
 		# @client.connect()
 
 		#create and connect new psql client
-		
+
 	###
 	Tries to connect to DB. If connection drops or some
 	error occures, tries it later
@@ -85,15 +87,14 @@ class Db extends EventEmitter
 	with this code from our queue or to throw error
 	###
 	acceptable = (code) ->
-		return false unless code?
-		errClass = code.slice(0, 2)
-		console.log "err class: " + errClass
-		switch errClass         #first two signs describe error class
-			when "00" then true # Successful Completion
-			when "08" then true # Connection Exception
-			when "57" then true # Operator Intervention
-			else return false   #unacceptable error class
-
+		return no unless code?
+		errClass = code.slice(0, 2) #first two signs describe error class
+		# console.log "err class: " + errClass
+		code in [
+			"00"  # Successful Completion
+			"08"# Connection Exception
+			"57"  # Operator Intervention
+		]
 
 	###
 	Pushes given input into queue for later dispatching
@@ -107,7 +108,7 @@ class Db extends EventEmitter
 
 		#create object with special callback to remove query from queue when it is processed
 		qObj = new QueryObject type, query, values, (err, result) =>
-			console.log "callBack"
+			debug "callBack"
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
 			console.log "acceptable code: "+acceptable err.code if err?
@@ -130,7 +131,7 @@ class Db extends EventEmitter
 	Tries to connect to db if the client state is "offline"
 	###
 	queuePull: () =>
-		console.log "queuePull"
+		debug "queuePull"
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
 			@tryToConnect() if @state is "offline"
@@ -178,7 +179,7 @@ class Db extends EventEmitter
 		valIds = []
 		values = []
 		i = 1
-		
+
 		for key, val of data
 			keys.push key
 			values.push val
@@ -196,7 +197,7 @@ class Db extends EventEmitter
 		if typeof whereData is "function"
 			done = whereData
 			whereData = []
-	
+
 			keys = []
 			valIds = []
 			values = []
@@ -214,9 +215,9 @@ class Db extends EventEmitter
 			values.push val
 
 		query = "UPDATE #{table} SET #{sets.join ', '} WHERE #{where} RETURNING *"
-	
+
 		@queryOne query, values, done
-	
+
 
 	###
 	Starts a transaction block

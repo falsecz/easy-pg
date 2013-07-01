@@ -1,3 +1,5 @@
+debug = require('debug') 'easy-pg-qo'
+
 class QueryObject
 
 	constructor: (type, query, values, done) ->
@@ -26,10 +28,10 @@ class QueryObject
 				return done err, result
 
 		"QueryOne" : (client, query, values, done) ->
-			console.log "QueryOne: ", typeof client
+			debug "QueryOne: ", typeof client
 
 			client.query query, values, (err, result) ->
-				console.log "QueryOne - clientCallback"
+				debug "QueryOne - clientCallback"
 				result = result?.rows?[0]
 				result ?= null
 				return done err, result
