@@ -1,26 +1,30 @@
-debug = require('debug') 'easy-pg'
-
-setImmediate = setImmediate ? process.nextTick
 module.exports = (connString, options) ->
 	return new Db connString, options
 
-# class Db
-# util = require 'util'
+
+debug = require('debug') 'easy-pg'
 pg = require "pg" # . native TODO
+
 {EventEmitter} = require "events"
 {QueryObject} = require "./queryObject.coffee"
-# colors = require 'colors'
-# url = require 'url'
 
+
+###
+ Deferred Postgresql Client Class
+
+ Contains queue of queries processed only in the case of established
+ connection. Connection is established only after the first query is
+ inserted into the client's queue, if options.lazy is set to "true".
+###
 class Db extends EventEmitter
 
 	# needs connection string for postgresql
-	# later probably just options object
+	# probably just options object later
 	# options.lazy = false makes db connection star right now
 	constructor: (connString, options={}) ->
 		@connectionString = connString #client's connection string
-		@state = "offline" #client's connection state
-		@queue = []  #client's queue for queries
+		@state = "offline"             #client's connection state
+		@queue = []                    #client's queue for queries
 
 		@tryToConnect() if options.lazy is false
 
@@ -62,8 +66,8 @@ class Db extends EventEmitter
 		#create and connect new psql client
 
 	###
-	Tries to connect to DB. If connection drops or some
-	error occures, tries it later
+	 Tries to connect to DB. If connection drops or some
+	 error occures, tries it later
 	###
 	tryToConnect: () =>
 		@state = "connecting"
@@ -82,23 +86,22 @@ class Db extends EventEmitter
 				@queuePull()   #process first query in the queue immediately
 
 	###
-	Returns true if the given postgresql error code
-	is acceptable = there is no reason to remove query
-	with this code from our queue or to throw error
+	 Returns true if the given postgresql error code
+	 is acceptable = there is no reason to remove query
+	 with this code from our queue or to throw error
 	###
 	acceptable = (code) ->
 		return no unless code?
 		errClass = code.slice(0, 2) #first two signs describe error class
-		# console.log "err class: " + errClass
-		code in [
+		errClass in [
 			"00"  # Successful Completion
-			"08"# Connection Exception
+			"08"  # Connection Exception
 			"57"  # Operator Intervention
 		]
 
 	###
-	Pushes given input into queue for later dispatching
-	requires "type" and "query"
+	 Pushes given input into queue for later dispatching
+	 requires "type" and "query"
 	###
 	queuePush: (type, query, values, done) =>
 		#for the case of calling (type, query, done)
@@ -108,17 +111,15 @@ class Db extends EventEmitter
 
 		#create object with special callback to remove query from queue when it is processed
 		qObj = new QueryObject type, query, values, (err, result) =>
-			debug "callBack"
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
-			console.log "acceptable code: "+acceptable err.code if err?
 			unless acceptable err?.code
 				@queue.shift()
 				done? err, result
 
 			else #try the failed query with acceptable code again
-				@printQueue()
-				console.log @state, @client
+				 #unfortunately connection restart is needed
+				@state = "offline"
 
 			@queuePull()   #process next in the queue
 
@@ -127,16 +128,17 @@ class Db extends EventEmitter
 
 
 	###
-	Dispatches first query in the queue if its not empty
-	Tries to connect to db if the client state is "offline"
+	 Dispatches first query in the queue if its not empty
+	 Tries to connect to db if the client state is "offline"
 	###
 	queuePull: () =>
-		debug "queuePull"
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
 			@tryToConnect() if @state is "offline"
 
-
+	###
+	 Just for debug, prints queue content
+	###
 	printQueue: () =>
 		console.log "---------------------------"
 		console.log q.toString() for q in @queue
@@ -144,8 +146,8 @@ class Db extends EventEmitter
 
 
 	###
-	Returns full DB result with data in the ".rows" entry
-	requires just "query"
+	 Returns full DB result with data in the ".rows" entry
+	 requires just "query"
 	###
 	query: (query, values, done) =>
 
@@ -153,8 +155,8 @@ class Db extends EventEmitter
 
 
 	###
-	Returns null or only the first row of the original DB result
-	requires just "query"
+	 Returns null or only the first row of the original DB result
+	 requires just "query"
 	###
 	queryOne: (query, values, done) =>
 
@@ -162,8 +164,8 @@ class Db extends EventEmitter
 
 
 	###
-	Returns null or array of rows of the original DB result
-	requires just "query"
+	 Returns null or array of rows of the original DB result
+	 requires just "query"
 	###
 	queryAll: (query, values, done) =>
 
@@ -171,8 +173,8 @@ class Db extends EventEmitter
 
 
 	###
-	Inserts "data" into specified "table"
-	requires "table" and "data"
+	 Inserts "data" into specified "table"
+	 requires "table" and "data"
 	###
 	insert: (table, data, done) =>
 		keys = []
@@ -190,8 +192,8 @@ class Db extends EventEmitter
 
 
 	###
-	Updates specified "table" using given "data"
-	requires "table", "data", "where", "done"
+	 Updates specified "table" using given "data"
+	 requires "table", "data", "where", "done"
 	###
 	update: (table, data, where, whereData, done) =>
 		if typeof whereData is "function"
@@ -220,32 +222,25 @@ class Db extends EventEmitter
 
 
 	###
-	Starts a transaction block
+	 Updates (inserts) data in the specified "table"
+	 requires "table", "data", "where", "whereData", "done"
 	###
-	begin: (done) =>
+	upsert: (table, data, where, whereData, done) =>
+	 	@queryOne "SELECT COUNT(*) FROM #{table} WHERE #{where}", whereData, (err, found) =>
+	 		done err if err
+	 		if found.count
+	 			@update table, data, where, whereData, done
+	 		else
+	 			@insert table, data, done
 
-		@query "BEGIN", done
-
-
-	###
-	Commits current transaction
-	###
-	commit: (done) =>
-
-		@query "COMMIT", done
 
 	###
-	Aborts current transaction
+	 Returns paginated "query" result containing max "limit" rows
+	 requires "offset", "limit", "cols", "query", "values", "done"
 	###
-	rollback: (done) =>
-
-		@query "ROLLBACK", done
-
-
 	paginate: (offset, limit, cols, query, values, done) =>
 		offset = parseInt offset
 		limit = parseInt limit
-		console.log 'ppapapapapapappa'
 		countQuery = "SELECT COUNT(#{cols}) FROM #{query}"
 		dataQuery = "SELECT #{cols} FROM #{query} OFFSET #{offset} LIMIT #{limit}"
 
@@ -254,7 +249,7 @@ class Db extends EventEmitter
 			@queryAll dataQuery, values, (err, result) =>
 				return done err if err
 
-				o =
+				res =
 					totalCount: count.count
 					currentOffset: offset
 					nextOffset: offset + limit
@@ -262,46 +257,31 @@ class Db extends EventEmitter
 
 					data: result
 
-				o.previousOffset = null if o.previousOffset < 0
+				res.previousOffset = null if o.previousOffset < 0
+				res.nextOffset = null if o.nextOffset > o.totalCount
 
-				o.nextOffset = null if o.nextOffset > o.totalCount
+				return done null, res
 
 
+	###
+	 Starts a transaction block
+	###
+	begin: (done) =>
 
-				return done null, o
+		@query "BEGIN", done
 
-	# upsert: (table, data, where, whereData, done) ->
-	# 	update = no
-	# 	if Array.isArray whereData
-	# 		update = yes
-	# 		for d in whereData
-	# 			update = no unless d?
-	# 			break
-	#
-	# 	if update
-	# 		@update table, data, where, whereData, done
-	# 	else
-	# 		@insert table, data, done
 
-	upsert: (table, data, where, whereData, done) ->
-		# console.log 'Where data'.log
-	# 	util.log util.inspect whereData
-	# 	@queryOne "SELECT COUNT(*) FROM #{table} WHERE #{where}", whereData, (err, found) =>
-	# 		done err if err
-	# 		if found.count
-	# 			@update table, data, where, whereData, done
-	# 		else
-	# 			@insert table, data, done
+	###
+	 Commits current transaction
+	###
+	commit: (done) =>
 
-		# update = no
-		# if Array.isArray whereData
-		# 	update = yes
-		# 	for d in whereData
-		# 		update = no unless d?
-		# 		break
-		#
-		# if update
-		# 	@update table, data, where, whereData, done
-		# else
-		# 	@insert table, data, done
+		@query "COMMIT", done
 
+
+	###
+	 Aborts current transaction
+	###
+	rollback: (done) =>
+
+		@query "ROLLBACK", done
