@@ -1,11 +1,23 @@
 pg = require "./index.coffee"
 
-db = pg "pg://postgres:123456@localhost:5432/TestDB", lazy: no
+connection =
+	user: "postgres"
+	pswd: "123456"
+	host: "localhost"
+	port: "5432"
+	db:   "TestDB"
+
+options =
+	lazy: no
+
+db = pg connection, options
+
 db.on "error", (err) ->
 	console.log err
 
 db.on "ready", () ->
-	console.log "DefPG Client ready..."
+	console.log "Deferred PG Client ready..."
+
 
 getAllNames = () ->
 	db.queryAll 'SELECT * FROM names', (err, res) ->
@@ -51,17 +63,24 @@ getAllNames()
 getFirstOfAllNames()
 getNameRaw "Andrej"###
 
-c = 0
-db.query 'DELETE FROM numbers;'
+#clear db-table numbers
+db.query 'DROP TABLE IF EXISTS numbers;', (err, res) ->
+		console.log "DROP TABLE query fail ...", err if err
+
+db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);", (err, res) ->
+		console.log "CREATE TABLE query fail ...", err if err
+
+# test INSERT
+INSERT_COUNT = 100
+c = 1
 foo = () ->
-	c++
 	insertNum c
-	#getAllNames()
-	#getFirstOfAllNames()
-	#getNameRaw "Andrej"
-	if c < 3000 then setTimeout(foo, 20)
-	else db.queryOne 'SELECT count(*) FROM numbers', (err, res) ->
-		console.log "inserted " + res.count + " rows of 3000"
+	return setTimeout(foo, 20) if c++ < INSERT_COUNT
+
+	#in the end
+	db.queryOne 'SELECT count(*) FROM numbers', (err, res) ->
+		return console.log err if err
+		console.log "OK!" if (parseInt res.count, 10) is INSERT_COUNT
 	
 
 setTimeout foo, 2000

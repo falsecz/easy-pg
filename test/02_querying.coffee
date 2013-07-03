@@ -1,10 +1,15 @@
 pg = require '../'
 
-cs = "pg://postgres:123456@localhost:5432/TestDB"
+connection =
+	user: "postgres"
+	pswd: "123456"
+	host: "localhost"
+	port: "5432"
+	db:   "TestDB"
 
 describe 'Querying', ->
 	beforeEach ->
-		@db = pg cs, lazy: no
+		@db = pg connection, lazy: no
 		@db.on 'error', (err) -> console.log err #ignore
 
 	describe 'query', ->

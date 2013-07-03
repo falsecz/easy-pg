@@ -1,12 +1,11 @@
-module.exports = (connString, options) ->
-	return new Db connString, options
-
-
 debug = require('debug') 'easy-pg'
 pg = require "pg" # . native TODO
 
 {EventEmitter} = require "events"
 {QueryObject} = require "./queryObject.coffee"
+
+# needed to be even able to catch "missing conn params"
+setImmediate = setImmediate ? process.nextTick
 
 
 ###
@@ -18,52 +17,40 @@ pg = require "pg" # . native TODO
 ###
 class Db extends EventEmitter
 
-	# needs connection string for postgresql
-	# probably just options object later
-	# options.lazy = false makes db connection star right now
-	constructor: (connString, options={}) ->
+	# connection parameters required by this client
+	requiredConnParams = ["user", "pswd", "host", "port", "db"]
+
+
+	# Constructor of the deferred postgresql client
+	# requires "conn" object with connection parameters, but it
+	# is possible to replace "conn" object by connection string
+	# opts.lazy = false makes db connection star immediately
+	constructor: (conn, opts={}) ->
+
+		if typeof conn is "object"
+			# check connection parameters
+			for param in requiredConnParams
+				setImmediate => # to be even able to catch this error
+					return @emit("error", new Error "#{param} missing in connection parameters") unless (param of conn)
+
+			#create connection string for pg
+			connString = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
+
+		else connString = conn #just use the given connection string
+
 		@connectionString = connString #client's connection string
 		@state = "offline"             #client's connection state
 		@queue = []                    #client's queue for queries
 
-		@tryToConnect() if options.lazy is false
+		# theres nothing more to do if options does not exist
+		return unless opts?
 
+		@tryToConnect() if opts.lazy is no
 
-		# @TODO setdate style
+		# ONLY IF SET IN OPTS
 		# 	@query """ SET datestyle = "iso, mdy" """
+		# 	@query """ set search_path public """
 
-		# opts =
-		# 	poolSize: 5
-		# 	# user: ''
-		# 	# host: '.dev1.nag.ccl'
-		# 	# port: 5432
-		# 	# database: ''
-		# 	# password: ''
-		# 	poolLog: console.log
-		#
-		# result = url.parse process.config.pgConnString
-		# opts.host = result.hostname;
-		# opts.database = if result.pathname then result.pathname.slice(1) else null
-		# auth = (result.auth || ':').split(':')
-		# opts.user = auth[0]
-		# opts.password = auth[1]
-		# opts.port = result.port
-		#
-		#
-		#
-		# pg.connect opts, (err, client) =>
-		# 	@client = client
-		# 	@query """ SET datestyle = "iso, mdy" """
-		# 	# @query """ set search_path public """
-		#
-		# 	console.log 'QB initialized'
-		# 	done()
-		# 	# GLOBAL.__CLIENT = client
-		#
-
-		# @client.connect()
-
-		#create and connect new psql client
 
 	###
 	 Tries to connect to DB. If connection drops or some
@@ -82,8 +69,10 @@ class Db extends EventEmitter
 					@tryToConnect()
 
 				@state = "online"
+				GLOBAL.__DPGCLIENT = client
 				@emit "ready"
 				@queuePull()   #process first query in the queue immediately
+
 
 	###
 	 Returns true if the given postgresql error code
@@ -98,6 +87,7 @@ class Db extends EventEmitter
 			"08"  # Connection Exception
 			"57"  # Operator Intervention
 		]
+
 
 	###
 	 Pushes given input into queue for later dispatching
@@ -114,14 +104,13 @@ class Db extends EventEmitter
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
 			unless acceptable err?.code
-				@queue.shift()
+				@queuePull(true)
 				done? err, result
 
 			else #try the failed query with acceptable code again
-				 #unfortunately connection restart is needed
+				 #unfortunately, it is necessary to reconnect
 				@state = "offline"
-
-			@queuePull()   #process next in the queue
+				@queuePull() #process next in the queue
 
 		@queue.push qObj #register another query
 		@queuePull() if @queue.length is 1 #process first query in the queue
@@ -131,10 +120,13 @@ class Db extends EventEmitter
 	 Dispatches first query in the queue if its not empty
 	 Tries to connect to db if the client state is "offline"
 	###
-	queuePull: () =>
+	queuePull: (shiftFirst = false) =>
+		@queue.shift() if shiftFirst #shift solved here to make this Pull ALMOST ATOMIC
+
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
 			@tryToConnect() if @state is "offline"
+
 
 	###
 	 Just for debug, prints queue content
@@ -195,15 +187,15 @@ class Db extends EventEmitter
 	 Updates specified "table" using given "data"
 	 requires "table", "data", "where", "done"
 	###
-	update: (table, data, where, whereData, done) =>
+	update: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
 			done = whereData
 			whereData = []
 
-			keys = []
-			valIds = []
-			values = []
-			i = 1
+		keys = []
+		valIds = []
+		values = []
+		i = 1
 
 		sets = []
 		for key, val of data
@@ -217,7 +209,6 @@ class Db extends EventEmitter
 			values.push val
 
 		query = "UPDATE #{table} SET #{sets.join ', '} WHERE #{where} RETURNING *"
-
 		@queryOne query, values, done
 
 
@@ -225,13 +216,18 @@ class Db extends EventEmitter
 	 Updates (inserts) data in the specified "table"
 	 requires "table", "data", "where", "whereData", "done"
 	###
-	upsert: (table, data, where, whereData, done) =>
-	 	@queryOne "SELECT COUNT(*) FROM #{table} WHERE #{where}", whereData, (err, found) =>
-	 		done err if err
-	 		if found.count
-	 			@update table, data, where, whereData, done
-	 		else
-	 			@insert table, data, done
+	upsert: (table, data, where, whereData=[], done) =>
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+
+		@queryOne "SELECT COUNT(*) FROM #{table} WHERE #{where}", whereData, (err, found) =>
+			return done err if err
+
+			if found.count > 0
+				@update table, data, where, whereData, done
+			else
+				@insert table, data, done
 
 
 	###
@@ -285,3 +281,10 @@ class Db extends EventEmitter
 	rollback: (done) =>
 
 		@query "ROLLBACK", done
+
+
+
+### ------- Export ------- ###
+
+module.exports = (connString, options) ->
+	return new Db connString, options
