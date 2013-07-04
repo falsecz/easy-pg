@@ -4,7 +4,10 @@
   "scripts": {
     "test": "mocha --compilers coffee:coffee-script --require coffee-script --require test/test_helper.coffee --reporter spec $(coffee test/test_helper.coffee)"
   },
-  "repository": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/falsecz/easy-pg.git"
+  },
   "author": "",
   "license": "BSD",
   "devDependencies": {
@@ -15,6 +18,7 @@
   },
   "dependencies": {
     "pg": "~2.0.0",
-    "debug": "~0.7.2"
+    "debug": "~0.7.2",
+    "glob": "~3.2.1"
   }
 }
