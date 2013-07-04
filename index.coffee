@@ -1,8 +1,9 @@
 debug = require('debug') 'easy-pg'
+url = require "url"
 pg = require "pg" # . native TODO
 
 {EventEmitter} = require "events"
-{QueryObject} = require "./queryObject.coffee"
+{QueryObject} = require "#{__dirname}/queryObject.coffee"
 
 # needed to be even able to catch "missing conn params"
 setImmediate = setImmediate ? process.nextTick
@@ -26,21 +27,29 @@ class Db extends EventEmitter
 	# is possible to replace "conn" object by connection string
 	# opts.lazy = false makes db connection star immediately
 	constructor: (conn, opts={}) ->
+		@queue = [] #create client's queue for queries
+
+		# parse connection string if needed
+		conn = @connParse conn if typeof conn is "string"
 
 		if typeof conn is "object"
 			# check connection parameters
 			for param in requiredConnParams
-				setImmediate => # to be even able to catch this error
-					return @emit("error", new Error "#{param} missing in connection parameters") unless (param of conn)
+				unless (param of conn and conn["#{param}"]?)
+					setImmediate => # to be even able to catch this error
+						@emit "error", new Error "#{param} missing in connection parameters"
+					return
 
 			#create connection string for pg
 			connString = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
 
-		else connString = conn #just use the given connection string
+		else #just use the given connection string
+			setImmediate => # to be even able to catch this error
+					@emit "error", new Error "wrong connection parameter - not string, not object"
+				return
 
-		@connectionString = connString #client's connection string
-		@state = "offline"             #client's connection state
-		@queue = []                    #client's queue for queries
+		@connectionString = connString #set client's connection string
+		@state = "offline"             #set client's connection state
 
 		# theres nothing more to do if options does not exist
 		return unless opts?
@@ -50,6 +59,38 @@ class Db extends EventEmitter
 		# ONLY IF SET IN OPTS
 		# 	@query """ SET datestyle = "iso, mdy" """
 		# 	@query """ set search_path public """
+
+	###
+	 Parses connection object from connection string
+	###
+	connParse: (str) ->
+		# url parse expects spaces encoded as %20
+		result = url.parse encodeURI str
+		auth = result.auth?.split ":"
+		connObj =
+			user : auth[0] if auth?[0]?.length > 0
+			pswd : auth[1] if auth?[1]?.length > 0
+			host : result.hostname if result.hostname?.length > 0
+			port : result.port if result.port?.length > 0
+			db : result.pathname.slice(1) if result.pathname?.length > 1
+
+		return connObj
+
+	###
+	 Immediately stops the client, queries in the queue will be lost
+	###
+	kill: () =>
+		#@state = "killing"
+		if @reconnectTimer? # to prevent reconnecting after kill
+			clearTimeout @reconnectTimer
+		if @client?
+			@queue.length = 0 # clear, but keeps all references to this queue
+			@client.end()
+			@emit "end" if @state isnt "online"
+		if @reconnectTimer? # once more, just for sure
+			clearTimeout @reconnectTimer
+
+		@state = "offline"
 
 
 	###
@@ -61,12 +102,14 @@ class Db extends EventEmitter
 		@client = new pg.Client @connectionString
 		@client.connect (err, client) =>
 			if err #register request for later connection
+				@reconnectTimer = setTimeout @tryToConnect, 2000
 				@emit "error", err.toString() #new Error "connection failed ..."
-				setTimeout @tryToConnect, 2000
 			else
 				client.on "error", (err) => #try to connect again immediately
 					@emit "error", err.toString() #new Error "connection lost..."
 					@tryToConnect()
+				client.on "end", () =>
+					@emit "end"
 
 				@state = "online"
 				GLOBAL.__DPGCLIENT = client

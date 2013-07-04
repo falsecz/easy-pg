@@ -10,13 +10,17 @@ connection =
 options =
 	lazy: no
 
-db = pg connection, options
+db = pg "pg://postgres:123456@localhost:5432", options
+#db = pg 618, options
 
 db.on "error", (err) ->
 	console.log err
 
 db.on "ready", () ->
 	console.log "Deferred PG Client ready..."
+
+db.on "end", (err) ->
+	console.log "Client is over"
 
 
 getAllNames = () ->
@@ -73,14 +77,27 @@ db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number 
 # test INSERT
 INSERT_COUNT = 100
 c = 1
+pom = 0
 foo = () ->
 	insertNum c
-	return setTimeout(foo, 20) if c++ < INSERT_COUNT
+	return pom = setTimeout(foo, 20) if c++ < INSERT_COUNT
 
 	#in the end
 	db.queryOne 'SELECT count(*) FROM numbers', (err, res) ->
 		return console.log err if err
 		console.log "OK!" if (parseInt res.count, 10) is INSERT_COUNT
 	
+foo2 = () ->
+	console.log "start?"
+	foo()
+
+foo3 = () ->
+	console.log "Kill!"
+	clearTimeout pom
+	db.kill()
 
 setTimeout foo, 2000
+setTimeout foo3, 3000
+setTimeout foo2, 6000
+
+db.printQueue()

@@ -1,21 +1,15 @@
 pg = require "../"
 
-connection =
-	user: "postgres"
-	pswd: "123456"
-	host: "localhost"
-	port: "5432"
-	db:   "TestDB"
+connectionStr = "pg://postgres:123456@localhost:5432/TestDB"
 
 QUERY_DROP = "DROP TABLE IF EXISTS numbers;"
 QUERY_CREATE = "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);"
 
 describe "Querying functions", ->
-	this.timeout 5000 # 5sec
+	this.timeout 10000 # 10sec
 
 	beforeEach ->
-		@db = pg connection, lazy: no
-		@db.on "error", (err) -> console.log err
+		@db = pg connectionStr, lazy: no
 
 		#clear db-table numbers
 		@db.query QUERY_DROP   #ignore error
@@ -37,7 +31,7 @@ describe "Querying functions", ->
 				@db.insert "numbers", number: i #ignore error
 
 			#get number of inserts
-			@db.queryOne 'SELECT COUNT(*) FROM numbers;', (err, res) -> #ignore error
+			@db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore error
 				done() if (parseInt res.count, 10) is INSERT_COUNT
 
 	describe "update", ->
