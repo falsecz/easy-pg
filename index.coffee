@@ -169,18 +169,10 @@ class Db extends EventEmitter
 	 requires "table" and "data"
 	###
 	insert: (table, data, done) =>
-		keys = []
-		valIds = []
-		values = []
-		i = 1
+		parsed = @parseData data # parse data info arrays
 
-		for key, val of data
-			keys.push key
-			values.push val
-			valIds.push "$#{i++}"
-
-		query = "INSERT INTO #{table} (#{keys.join ', '}) VALUES (#{valIds.join ', '}) RETURNING *"
-		@queryOne query, values, done
+		query = "INSERT INTO #{table} (#{parsed.keys.join ', '}) VALUES (#{parsed.valueIDs.join ', '}) RETURNING *"
+		@queryOne query, parsed.values, done
 
 
 	###
@@ -192,24 +184,18 @@ class Db extends EventEmitter
 			done = whereData
 			whereData = []
 
-		keys = []
-		valIds = []
-		values = []
-		i = 1
+		parsed = @parseData data # parse "data" info arrays
 
-		sets = []
-		for key, val of data
-			sets.push "#{key} = $#{i++}"
-			values.push val
-
+		# parse data from "whereData" and match it in "where"
+		i = parsed.values.length
 		where = where.replace /\$(\d+)/g, (match, id) ->
 			"$" + (i - 1 + parseInt(id))
 
 		for val in whereData
-			values.push val
+			parsed.values.push val
 
-		query = "UPDATE #{table} SET #{sets.join ', '} WHERE #{where} RETURNING *"
-		@queryOne query, values, done
+		query = "UPDATE #{table} SET #{parsed.sets.join ', '} WHERE #{where} RETURNING *"
+		@queryOne query, parsed.values, done
 
 
 	###
@@ -221,13 +207,36 @@ class Db extends EventEmitter
 			done = whereData
 			whereData = []
 
-		@queryOne "SELECT COUNT(*) FROM #{table} WHERE #{where}", whereData, (err, found) =>
-			return done err if err
+		parsed = @parseData data # parse "data" info arrays
 
-			if found.count > 0
-				@update table, data, where, whereData, done
-			else
-				@insert table, data, done
+		# parse data from "whereData" and match it in "where"
+		i = parsed.values.length
+		where = where.replace /\$(\d+)/g, (match, id) ->
+			"$" + (i - 1 + parseInt(id))
+
+		for val in whereData
+			parsed.values.push val
+
+		# ugly query, but the only way how to make UPSERT atomic
+		# is make it work only id db
+		upsQuery =  """
+					WITH
+					  try_update AS (
+					    UPDATE #{table}
+					    SET #{parsed.sets.join ', '}
+					    WHERE #{where}
+					    RETURNING *
+					  ),
+					  try_create AS (
+					    INSERT INTO #{table} (#{parsed.keys.join ', '})
+					    SELECT #{parsed.valueIDs.join ', '}
+					    WHERE NOT EXISTS (SELECT 1 FROM try_update)
+					    RETURNING *
+					  )
+					SELECT COALESCE((SELECT 1 FROM try_create), (SELECT 1 FROM try_update))
+					"""
+
+		@queryOne upsQuery, parsed.values, done
 
 
 	###
@@ -281,6 +290,29 @@ class Db extends EventEmitter
 	rollback: (done) =>
 
 		@query "ROLLBACK", done
+
+
+	###
+	 Parses given data object to get format of this data
+	 useful for client's query functions
+	 returned object contains: "keys", "values", "valueIDs", "sets"
+	###
+	parseData: (data) ->
+		keys = []   # array of keys
+		vals = []   # array of values
+		valIds = [] # array of "$id"
+		sets = []   # array of "key = $id"
+		i = 1
+
+		for key, val of data
+			keys.push key
+			vals.push val
+			valIds.push "$#{i}"
+			sets.push "#{key} = $#{i}"
+			i++
+
+		return { keys: keys, values: vals, valueIDs: valIds, sets: sets }	
+
 
 
 

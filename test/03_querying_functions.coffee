@@ -66,7 +66,7 @@ describe "Querying functions", ->
 		it "returns result on right query", (done) ->
 			@db.upsert "numbers", number: 0, "number = 0", (err, res) =>
 				@db.upsert "numbers", number: 0, "number = 0", (err, res) =>
-					done() if (res? and res.number is 0)
+					done() if (res? and res.coalesce is 1)
 		
 		it "returns error on wrong query", (done) ->
 			@db.upsert "table", value: 0, "value = 99", (err, res) =>
@@ -79,11 +79,8 @@ describe "Querying functions", ->
 				@db.upsert "numbers", number: i, "number = #{i}" #ignore error
 
 			for j in [0...UPSERT_COUNT]
-				@db.upsert "numbers", number: j, "number = #{j}" #ignore error
+				@db.upsert "numbers", number: 0, "number = #{j}" #ignore error
 
-			# doesn't work !!! cause if you have query inside query, the inside query
-			# is appended at the end of the query, but you need to replace it, not append
-			# to get the right sequence of queriesl
 			@db.queryOne "SELECT COUNT(number) FROM numbers;", (err, res) -> #ignore error
 				done() if (parseInt res.count, 10) is UPSERT_COUNT
 
