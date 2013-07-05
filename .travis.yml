@@ -3,4 +3,5 @@ node_js:
   - "0.8"
   - "0.10"
 before_script:
-  - psql -c "create database TestDB; ALTER USER postgres WITH PASSWORD '123456';" -U postgres
+  - psql -c "create database TestDB;" -U postgres
+  - psql -c "ALTER USER postgres WITH PASSWORD '123456';" -U postgres
