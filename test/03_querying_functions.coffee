@@ -10,11 +10,13 @@ describe "Querying functions", ->
 
 	beforeEach ->
 		@db = pg connectionStr, lazy: no
+		@db.on 'error', (err) ->
+			console.log err
 
 		#clear db-table numbers
 		@db.query QUERY_DROP   #ignore error
 		@db.query QUERY_CREATE #ignore error
-	
+
 	describe "insert", ->
 		it "returns result on right query", (done) ->
 			@db.insert "numbers", number: 99, (err, res) =>
@@ -26,7 +28,7 @@ describe "Querying functions", ->
 
 		it "successful sequence of 100 fast queries", (done) ->
 			INSERT_COUNT = 100
-			
+
 			for i in [0...INSERT_COUNT]
 				@db.insert "numbers", number: i #ignore error
 
@@ -46,7 +48,7 @@ describe "Querying functions", ->
 
 		it "successful sequence of 100 fast queries", (done) ->
 			UPDATE_COUNT = INSERT_COUNT = 100
-			
+
 			for i in [0...INSERT_COUNT]
 				@db.insert "numbers", number: i #ignore error
 
@@ -61,11 +63,11 @@ describe "Querying functions", ->
 			@db.upsert "numbers", number: 0, "number = 0", (err, res) =>
 				@db.upsert "numbers", number: 0, "number = 0", (err, res) =>
 					done() if (res? and res.coalesce is 1)
-		
+
 		it "returns error on wrong query", (done) ->
 			@db.upsert "table", value: 0, "value = 99", (err, res) =>
 				done() if err?
-		
+
 		it "successful sequence of 100 fast queries", (done) ->
 			UPSERT_COUNT = 50
 
