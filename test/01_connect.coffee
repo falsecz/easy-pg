@@ -30,7 +30,7 @@ describe "Immediate initialization", ->
 
 	it "create instance", () ->
 		db = pg connectionStr, lazy: no
-		db.kill()
+		db.on "ready", db.kill
 
 		assert.isObject db, "db must be an object"
 		fn = [

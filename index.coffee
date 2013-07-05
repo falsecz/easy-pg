@@ -30,23 +30,20 @@ class Db extends EventEmitter
 		@queue = [] #create client's queue for queries
 
 		# parse connection string if needed
-		conn = @connParse conn if typeof conn is "string"
+		conn = @parseConn conn if typeof conn is "string"
 
 		if typeof conn is "object"
 			# check connection parameters
 			for param in requiredConnParams
 				unless (param of conn and conn["#{param}"]?)
-					setImmediate => # to be even able to catch this error
-						@emit "error", new Error "#{param} missing in connection parameters"
-					return
+					return @handleError(new Error "#{param} missing in connection parameters")
 
 			#create connection string for pg
 			connString = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
 
 		else #just use the given connection string
-			setImmediate => # to be even able to catch this error
-					@emit "error", new Error "wrong connection parameter - not string, not object"
-				return
+			return @handleError(new Error "wrong connection parameter - not string, not object")
+
 
 		@connectionString = connString #set client's connection string
 		@state = "offline"             #set client's connection state
@@ -60,26 +57,21 @@ class Db extends EventEmitter
 		# 	@query """ SET datestyle = "iso, mdy" """
 		# 	@query """ set search_path public """
 
-	###
-	 Parses connection object from connection string
-	###
-	connParse: (str) ->
-		# url parse expects spaces encoded as %20
-		result = url.parse encodeURI str
-		auth = result.auth?.split ":"
-		connObj =
-			user : auth[0] if auth?[0]?.length > 0
-			pswd : auth[1] if auth?[1]?.length > 0
-			host : result.hostname if result.hostname?.length > 0
-			port : result.port if result.port?.length > 0
-			db : result.pathname.slice(1) if result.pathname?.length > 1
 
-		return connObj
+	###
+	 Handles errors
+	###
+	handleError : (err) ->
+		if (!@_events || !@_events.error || (typeIsArray(@_events.error) && !@_events.error.length))
+			setImmediate =>
+				@emit "error", err
+		else
+			throw err
+
 
 	###
 	 Immediately stops the client, queries in the queue will be lost
-	 The client is still connected, thus it is possible to revive it
-	 just by inserting another query
+	 The client can be reconnected, by inserting another query
 	###
 	kill: () =>
 		#@state = "killing"
@@ -335,6 +327,29 @@ class Db extends EventEmitter
 	rollback: (done) =>
 
 		@query "ROLLBACK", done
+
+
+	###
+	 Returns true if type is Array
+	###
+	typeIsArray = Array.isArray || ( value ) -> return {}.toString.call( value ) is '[object Array]'
+
+
+	###
+	 Parses connection object from connection string
+	###
+	parseConn: (str) ->
+		# url parse expects spaces encoded as %20
+		result = url.parse encodeURI str
+		auth = result.auth?.split ":"
+		connObj =
+			user : auth[0] if auth?[0]?.length > 0
+			pswd : auth[1] if auth?[1]?.length > 0
+			host : result.hostname if result.hostname?.length > 0
+			port : result.port if result.port?.length > 0
+			db : result.pathname.slice(1) if result.pathname?.length > 1
+
+		return connObj
 
 
 	###
