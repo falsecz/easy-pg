@@ -36,13 +36,13 @@ class Db extends EventEmitter
 			# check connection parameters
 			for param in requiredConnParams
 				unless (param of conn and conn["#{param}"]?)
-					return @handleError(new Error "#{param} missing in connection parameters")
+					return @handleError new Error "#{param} missing in connection parameters"
 
 			#create connection string for pg
 			connString = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
 
 		else #just use the given connection string
-			return @handleError(new Error "wrong connection parameter - not string, not object")
+			return @handleError new Error "wrong connection parameter - not string, not object"
 
 
 		@connectionString = connString #set client's connection string
@@ -62,11 +62,10 @@ class Db extends EventEmitter
 	 Handles errors
 	###
 	handleError : (err) ->
-		if (!@_events || !@_events.error || (typeIsArray(@_events.error) && !@_events.error.length))
-			setImmediate =>
-				@emit "error", err
+		if @listeners("error").length
+			@emit "error", err
 		else
-			throw err
+  			throw err
 
 
 	###
@@ -97,10 +96,10 @@ class Db extends EventEmitter
 		@client.connect (err, client) =>
 			if err #register request for later connection
 				@reconnectTimer = setTimeout @tryToConnect, 2000
-				@emit "error", err.toString() #new Error "connection failed ..."
+				return @handleError err #new Error "connection failed ..."
 			else
 				client.on "error", (err) => #try to connect again immediately
-					@emit "error", err.toString() #new Error "connection lost..."
+					return @handleError err #new Error "connection lost..."
 					@tryToConnect()
 				client.on "end", () =>
 					@emit "end"

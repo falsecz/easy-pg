@@ -49,20 +49,14 @@ describe "Immediate initialization", ->
 		for f in fn
 			assert.isFunction db[f], "must have #{f} function"
 
-	it "emit error on incomplete connection string information", (done) ->
-		db = pg incompleteConnectionStr, lazy: no
-		db.on "error", (err) ->
-			return done()
+	it "emit error on incomplete connection string information", () ->
+		assert.throws (-> pg incompleteConnectionStr, lazy: no ), Error
 
-	it "emit error on incomplete connection object information", (done) ->
-		db = pg incompleteConnection, lazy: no
-		db.on "error", (err) ->
-			return done()
+	it "emit error on incomplete connection object information", () ->
+		assert.throws (-> pg incompleteConnection, lazy: no ), Error
 
-	it "emit error on wrong type of connection parameter", (done) ->
-		db = pg 90210, lazy: no
-		db.on "error", (err) ->
-			return done()
+	it "emit error on wrong type of connection parameter", () ->
+		assert.throws (-> pg 90210, lazy: no ), Error
 
 	it "emit error on couldn't connect", (done) ->
 		db = pg wrongConnectionStr, lazy: no
@@ -99,20 +93,14 @@ describe "Deferred initialization", ->
 		for f in fn
 			assert.isFunction db[f], "must have #{f} function"
 
-	it "emit error on incomplete connection string information", (done) ->
-		db = pg incompleteConnectionStr
-		db.on "error", (err) ->
-			return done()
+	it "emit error on incomplete connection string information", () ->
+		assert.throws (-> pg incompleteConnectionStr ), Error
 
-	it "emit error on incomplete connection object information", (done) ->
-		db = pg incompleteConnection
-		db.on "error", (err) ->
-			return done()
+	it "emit error on incomplete connection object information", () ->
+		assert.throws (-> pg incompleteConnection ), Error
 
-	it "emit error on wrong type of connection parameter", (done) ->
-		db = pg 90210
-		db.on "error", (err) ->
-			return done()
+	it "emit error on wrong type of connection parameter", () ->
+		assert.throws (-> pg 90210 ), Error
 
 	it "emit error on couldn't connect", (done) ->
 		db = pg wrongConnectionStr
