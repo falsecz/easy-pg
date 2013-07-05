@@ -78,6 +78,8 @@ class Db extends EventEmitter
 
 	###
 	 Immediately stops the client, queries in the queue will be lost
+	 The client is still connected, thus it is possible to revive it
+	 just by inserting another query
 	###
 	kill: () =>
 		#@state = "killing"

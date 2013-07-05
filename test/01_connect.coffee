@@ -25,12 +25,12 @@ wrongConnection =
 	db:   "unknown_database"
 
 
-
 describe "Immediate initialization", ->
-	this.timeout 10000 # 10sec
+	@timeout 10000 # 10sec
 
 	it "create instance", () ->
 		db = pg connectionStr, lazy: no
+		db.kill()
 
 		assert.isObject db, "db must be an object"
 		fn = [
@@ -52,31 +52,32 @@ describe "Immediate initialization", ->
 	it "emit error on incomplete connection string information", (done) ->
 		db = pg incompleteConnectionStr, lazy: no
 		db.on "error", (err) ->
-			done()
+			return done()
 
 	it "emit error on incomplete connection object information", (done) ->
 		db = pg incompleteConnection, lazy: no
 		db.on "error", (err) ->
-			done()
+			return done()
 
 	it "emit error on wrong type of connection parameter", (done) ->
 		db = pg 90210, lazy: no
 		db.on "error", (err) ->
-			done()
+			return done()
 
 	it "emit error on couldn't connect", (done) ->
 		db = pg wrongConnectionStr, lazy: no
 		db.on "error", (err) ->
 			db.kill() # to stop calling ConnErr all over again
-			done()
+			return done()
 
 	it "emit ready on successfull connection", (done) ->
 		db = pg connectionStr, lazy: no
 		db.on "ready", (err) ->
-			done()
+			db.kill()
+			return done()
 
 describe "Deferred initialization", ->
-	this.timeout 10000 # 10sec
+	@timeout 10000 # 10sec
 
 	it "create instance", () ->
 		db = pg connectionStr, lazy: yes
@@ -111,7 +112,7 @@ describe "Deferred initialization", ->
 	it "emit error on wrong type of connection parameter", (done) ->
 		db = pg 90210
 		db.on "error", (err) ->
-			done()
+			return done()
 
 	it "emit error on couldn't connect", (done) ->
 		db = pg wrongConnectionStr
@@ -126,6 +127,7 @@ describe "Deferred initialization", ->
 	it "emit ready on successfull connection", (done) ->
 		db = pg connectionStr
 		db.on "ready", (err) ->
+			db.kill()
 			return done()
 
 		setTimeout ( ->
@@ -133,31 +135,29 @@ describe "Deferred initialization", ->
 			), 500
 
 describe "Kill test", ->
-	this.timeout 10000 # 10sec
+	@timeout 10000 # 10sec
 
 	# call kill to stop client working
 	it "emit end on calling kill", (done) ->
-		@db = pg connectionStr, lazy: no
-		@db.on "ready", () =>
-			setTimeout @db.kill, 200
+		db = pg connectionStr, lazy: no
+		db.on "ready", () ->
+			setTimeout db.kill, 200
 
-		@db.on "end", () ->
+		db.on "end", () ->
 			return done()
-		
 
 	# insert query, kill clients work, insert another query to revive client
 	it "kill and revive by pushing new query afterwards", (done) ->
-		@db = pg connectionStr
-		@db.on "end", () =>
-			setTimeout ( =>
-				@db.query "SELECT 1 WHERE 1 = 1"
-				@db.query "SELECT 1 WHERE 1 = 1"
-				@db.query "SELECT 1 WHERE 1 = 1", (err, res) =>
+		db = pg connectionStr
+		db.on "end", () ->
+			setTimeout ( ->
+				db.query "SELECT 1 WHERE 1 = 1"
+				db.query "SELECT 1 WHERE 1 = 1"
+				db.query "SELECT 1 WHERE 1 = 1", (err, res) ->
 					return done()
 				), 200
 
-		@db.query "SELECT 1 WHERE 1 = 1"
-		@db.query "SELECT 1 WHERE 1 = 1"
-		@db.query "SELECT 1 WHERE 1 = 1", (err, res) =>
-				setTimeout @db.kill, 200
-
+		db.query "SELECT 1 WHERE 1 = 1"
+		db.query "SELECT 1 WHERE 1 = 1"
+		db.query "SELECT 1 WHERE 1 = 1", (err, res) ->
+				setTimeout db.kill, 200
