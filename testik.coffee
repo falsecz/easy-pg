@@ -10,8 +10,7 @@ connection =
 options =
 	lazy: no
 
-db = pg "pg://postgres:123456@localhost:5432", options
-#db = pg 618, options
+db = pg connection, options
 
 db.on "error", (err) ->
 	console.log err
@@ -86,18 +85,24 @@ foo = () ->
 	db.queryOne 'SELECT count(*) FROM numbers', (err, res) ->
 		return console.log err if err
 		console.log "OK!" if (parseInt res.count, 10) is INSERT_COUNT
+		#dalsi testovaci kod tady, na to strankovani
+		db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1", [9], (err, res) ->
+			console.log err if err
+			console.log res
+			db.paginate res.nextOffset, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1", [9], (err, res) ->
+				console.log err if err
+				console.log res
+				db.end()
 	
 foo2 = () ->
 	console.log "start?"
 	foo()
 
 foo3 = () ->
-	console.log "Kill!"
+	console.log "db.end()"
 	clearTimeout pom
-	db.kill()
+	db.end()
 
-setTimeout foo, 2000
-setTimeout foo3, 3000
-setTimeout foo2, 6000
-
-db.printQueue()
+setTimeout foo, 1000
+setTimeout foo3, 1500
+setTimeout foo2, 2000

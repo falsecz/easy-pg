@@ -5,9 +5,6 @@ pg = require "pg" # . native TODO
 {EventEmitter} = require "events"
 {QueryObject} = require "#{__dirname}/queryObject.coffee"
 
-# needed to be even able to catch "missing conn params"
-setImmediate = setImmediate ? process.nextTick
-
 
 ###
  Deferred Postgresql Client Class
@@ -36,13 +33,13 @@ class Db extends EventEmitter
 			# check connection parameters
 			for param in requiredConnParams
 				unless (param of conn and conn["#{param}"]?)
-					return @handleError new Error "#{param} missing in connection parameters"
+					return @handleError "#{param} missing in connection parameters"
 
 			#create connection string for pg
 			connString = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
 
 		else #just use the given connection string
-			return @handleError new Error "wrong connection parameter - not string, not object"
+			return @handleError "wrong connection parameter - not string, not object"
 
 
 		@connectionString = connString #set client's connection string
@@ -56,34 +53,6 @@ class Db extends EventEmitter
 		# ONLY IF SET IN OPTS
 		# 	@query """ SET datestyle = "iso, mdy" """
 		# 	@query """ set search_path public """
-
-
-	###
-	 Handles errors
-	###
-	handleError : (err) ->
-		if @listeners("error").length
-			@emit "error", err
-		else
-  			throw err
-
-
-	###
-	 Immediately stops the client, queries in the queue will be lost
-	 The client can be reconnected, by inserting another query
-	###
-	kill: () =>
-		#@state = "killing"
-		if @reconnectTimer? # to prevent reconnecting after kill
-			clearTimeout @reconnectTimer
-		if @client?
-			@queue.length = 0 # clear, but keeps all references to this queue
-			@client.end()
-			@emit "end" if @state isnt "online"
-		if @reconnectTimer? # once more, just for sure
-			clearTimeout @reconnectTimer
-
-		@state = "offline"
 
 
 	###
@@ -137,6 +106,8 @@ class Db extends EventEmitter
 
 		#create object with special callback to remove query from queue when it is processed
 		qObj = new QueryObject type, query, values, (err, result) =>
+			@kill() if @wantToEnd
+
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
 			unless acceptable err?.code
@@ -237,6 +208,7 @@ class Db extends EventEmitter
 	###
 	 Updates (inserts) data in the specified "table"
 	 requires "table", "data", "where", "whereData", "done"
+	 ! requires Postgresql version 9.2, 9.2, 9.0 or 8.4 !
 	###
 	upsert: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
@@ -277,31 +249,43 @@ class Db extends EventEmitter
 
 	###
 	 Returns paginated "query" result containing max "limit" rows
-	 requires "offset", "limit", "cols", "query", "values", "done"
+	 requires "offset", "limit", "cols", "query", "done"
 	###
 	paginate: (offset, limit, cols, query, values, done) =>
+		if typeof values is "function"
+			done = values
+			values = null
+
 		offset = parseInt offset
 		limit = parseInt limit
-		countQuery = "SELECT COUNT(#{cols}) FROM #{query}"
-		dataQuery = "SELECT #{cols} FROM #{query} OFFSET #{offset} LIMIT #{limit}"
+		countColName = "count"
 
-		@queryOne countQuery, values, (err, count) =>
+		query = """
+				WITH baseQuery AS (
+				#{query}
+				)
+				SELECT #{cols}, COUNT(*) OVER() AS #{countColName}
+				FROM baseQuery
+				OFFSET #{offset} LIMIT #{limit}
+				"""
+
+		@queryAll query, values, (err, res) =>
 			return done err if err
-			@queryAll dataQuery, values, (err, result) =>
-				return done err if err
 
-				res =
-					totalCount: count.count
-					currentOffset: offset
-					nextOffset: offset + limit
-					previousOffset: offset - limit
+			result =
+				totalCount: if res.length then parseInt res[0].count else 0
+				previousOffset: offset - limit
+				currentOffset:  offset
+				nextOffset:     offset + limit
+				data: res
+			
+			result.previousOffset = null if result.previousOffset < 0
+			result.nextOffset = null if result.nextOffset > result.totalCount
 
-					data: result
+			#delete "count" column from received data
+			delete entry[countColName] for entry in result.data if result.data.length
 
-				res.previousOffset = null if o.previousOffset < 0
-				res.nextOffset = null if o.nextOffset > o.totalCount
-
-				return done null, res
+			return done null, result
 
 
 	###
@@ -329,13 +313,8 @@ class Db extends EventEmitter
 
 
 	###
-	 Returns true if type is Array
-	###
-	typeIsArray = Array.isArray || ( value ) -> return {}.toString.call( value ) is '[object Array]'
-
-
-	###
 	 Parses connection object from connection string
+	 requires "str" with connection string
 	###
 	parseConn: (str) ->
 		# url parse expects spaces encoded as %20
@@ -373,7 +352,45 @@ class Db extends EventEmitter
 		return { keys: keys, values: vals, valueIDs: valIds, sets: sets }	
 
 
+	###
+	 Handles errors
+	 err has to be string or instance of Error
+	###
+	handleError : (err) ->
+		err = new Error err if typeof err is "string"
+		if @listeners("error").length
+			@emit "error", err
+		else
+  			throw err
 
+
+	###
+	 Immediately stops the client, queries in the queue will be lost
+	 The client can be reconnected, by inserting another query
+	###
+	kill: () =>
+		#@state = "killing"
+		if @reconnectTimer? # to prevent reconnecting after kill
+			clearTimeout @reconnectTimer
+		if @client?
+			@queue.length = 0 # clear, but keeps all references to this queue
+			@client.end()
+			@emit "end" if @state isnt "online"
+		if @reconnectTimer? # once more, just for sure
+			clearTimeout @reconnectTimer
+
+		@state = "offline"
+		@wantToEnd = no
+
+
+	###
+	 Stops the client right after the last query callback, thus it
+	 should not emit any query fail error
+	###
+	end: () =>
+		unless @wantToEnd
+			@wantToEnd = yes
+			@kill() if @state isnt "online" or @queue.length is 0 #nothing to do
 
 ### ------- Export ------- ###
 

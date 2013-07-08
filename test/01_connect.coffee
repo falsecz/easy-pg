@@ -49,25 +49,25 @@ describe "Immediate initialization", ->
 		for f in fn
 			assert.isFunction db[f], "must have #{f} function"
 
-	it "emit error on incomplete connection string information", () ->
+	it "throw error on incomplete connection string information", () ->
 		assert.throws (-> pg incompleteConnectionStr, lazy: no ), Error
 
-	it "emit error on incomplete connection object information", () ->
+	it "throw error on incomplete connection object information", () ->
 		assert.throws (-> pg incompleteConnection, lazy: no ), Error
 
-	it "emit error on wrong type of connection parameter", () ->
+	it "throw error on wrong type of connection parameter", () ->
 		assert.throws (-> pg 90210, lazy: no ), Error
 
 	it "emit error on couldn't connect", (done) ->
 		db = pg wrongConnectionStr, lazy: no
 		db.on "error", (err) ->
-			db.kill() # to stop calling ConnErr all over again
+			db.end() # to stop calling ConnErr all over again
 			return done()
 
 	it "emit ready on successfull connection", (done) ->
 		db = pg connectionStr, lazy: no
 		db.on "ready", (err) ->
-			db.kill()
+			db.end()
 			return done()
 
 describe "Deferred initialization", ->
@@ -93,19 +93,19 @@ describe "Deferred initialization", ->
 		for f in fn
 			assert.isFunction db[f], "must have #{f} function"
 
-	it "emit error on incomplete connection string information", () ->
+	it "throw error on incomplete connection string information", () ->
 		assert.throws (-> pg incompleteConnectionStr ), Error
 
-	it "emit error on incomplete connection object information", () ->
+	it "throw error on incomplete connection object information", () ->
 		assert.throws (-> pg incompleteConnection ), Error
 
-	it "emit error on wrong type of connection parameter", () ->
+	it "throw error on wrong type of connection parameter", () ->
 		assert.throws (-> pg 90210 ), Error
 
 	it "emit error on couldn't connect", (done) ->
 		db = pg wrongConnectionStr
 		db.on "error", (err) ->
-			db.kill() # to stop calling ConnErr all over again
+			db.end() # to stop calling ConnErr all over again
 			return done()
 
 		setTimeout ( ->
@@ -115,14 +115,14 @@ describe "Deferred initialization", ->
 	it "emit ready on successfull connection", (done) ->
 		db = pg connectionStr
 		db.on "ready", (err) ->
-			db.kill()
+			db.end()
 			return done()
 
 		setTimeout ( ->
 			db.query "SELECT 1 WHERE 1 = 1"
 			), 500
 
-describe "Kill test", ->
+describe "Disconnection test", ->
 	@timeout 10000 # 10sec
 
 	# call kill to stop client working
@@ -134,18 +134,31 @@ describe "Kill test", ->
 		db.on "end", () ->
 			return done()
 
+	it "emit end on calling end", (done) ->
+		db = pg connectionStr, lazy: no
+		db.on "ready", () ->
+			setTimeout db.end, 200
+
+		db.on "end", () ->
+			return done()
+
 	# insert query, kill clients work, insert another query to revive client
-	it "kill and revive by pushing new query afterwards", (done) ->
+	it "end and revive by pushing new query afterwards", (done) ->
 		db = pg connectionStr
 		db.on "end", () ->
-			setTimeout ( ->
-				db.query "SELECT 1 WHERE 1 = 1"
-				db.query "SELECT 1 WHERE 1 = 1"
-				db.query "SELECT 1 WHERE 1 = 1", (err, res) ->
-					return done()
-				), 200
+			return done() if itsTimeToEnd
+
+		itsTimeToEnd = no
 
 		db.query "SELECT 1 WHERE 1 = 1"
 		db.query "SELECT 1 WHERE 1 = 1"
-		db.query "SELECT 1 WHERE 1 = 1", (err, res) ->
-				setTimeout db.kill, 200
+		db.query "SELECT 1 WHERE 1 = 1"#, (err, res) ->
+		db.end()
+
+		setTimeout ( ->
+			db.query "SELECT 1 WHERE 1 = 1"
+			db.query "SELECT 1 WHERE 1 = 1"
+			db.query "SELECT 1 WHERE 1 = 1", (err, res) ->
+			itsTimeToEnd = yes
+			db.end()
+			), 200

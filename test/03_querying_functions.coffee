@@ -79,4 +79,28 @@ describe "Querying functions", ->
 			db.queryOne "SELECT COUNT(number) FROM numbers;", (err, res) -> #ignore error
 				done() if (parseInt res.count, 10) is UPSERT_COUNT
 
+	describe "paginate", ->
+		it "returns result on right query", (done) ->
+			INSERT_COUNT = 10
+
+			for i in [0...INSERT_COUNT]
+				db.insert "numbers", number: i #ignore error
+
+			db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1", [9], (err, res) ->
+				return done() if res.totalCount is 1
+
+		it "returns error on wrong query", (done) ->
+			db.paginate 0, 10, "_id, number", "SELECT * FROM table", (err, res) ->
+				return done() if err?
+
+		it "successful sequence of 100 fast queries", (done) ->
+			PAGE_COUNT = INSERT_COUNT = 100
+
+			for i in [0...INSERT_COUNT]
+				db.insert "numbers", number: i #ignore error
+
+			for i in [0...PAGE_COUNT]
+				db.paginate i, 10, "_id, number", "SELECT * FROM numbers", (err, res) ->
+					if res.totalCount is PAGE_COUNT and res.nextOffset is null
+						return done() if res.currentOffset is PAGE_COUNT - 1
 
