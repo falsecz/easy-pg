@@ -86,7 +86,7 @@ describe "Querying functions", ->
 			for i in [0...INSERT_COUNT]
 				db.insert "numbers", number: i #ignore error
 
-			db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1", [9], (err, res) ->
+			db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9], (err, res) ->
 				return done() if res.totalCount is 1
 
 		it "returns error on wrong query", (done) ->

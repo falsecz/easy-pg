@@ -77,32 +77,30 @@ db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number 
 INSERT_COUNT = 100
 c = 1
 pom = 0
+
+db.begin () ->
+	console.log "transaction begin"
+
 foo = () ->
 	insertNum c
+	if c is 20 then db.savepoint "x20savepoint", (err, res) ->
+		console.log "savepoint set to first 20"
 	return pom = setTimeout(foo, 20) if c++ < INSERT_COUNT
 
 	#in the end
-	db.queryOne 'SELECT count(*) FROM numbers', (err, res) ->
-		return console.log err if err
-		console.log "OK!" if (parseInt res.count, 10) is INSERT_COUNT
-		#dalsi testovaci kod tady, na to strankovani
-		db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1", [9], (err, res) ->
-			console.log err if err
-			console.log res
-			db.paginate res.nextOffset, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1", [9], (err, res) ->
-				console.log err if err
-				console.log res
-				db.end()
+	db.commit () ->
+		console.log "transaction commited"
+		db.end()
+
+
 	
 foo2 = () ->
-	console.log "start?"
-	foo()
-
-foo3 = () ->
-	console.log "db.end()"
+	console.log "db.rollback()"
 	clearTimeout pom
-	db.end()
+	db.rollback "x20savepoint", () ->
+		console.log "rolled back"
+		#db.end()
 
 setTimeout foo, 1000
-setTimeout foo3, 1500
-setTimeout foo2, 2000
+setTimeout foo2, 1500
+setTimeout foo, 2000

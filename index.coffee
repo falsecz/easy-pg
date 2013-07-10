@@ -1,5 +1,6 @@
-debug = require('debug') 'easy-pg'
+debug = require("debug") "easy-pg"
 url = require "url"
+async = require "async"
 pg = require "pg" # . native TODO
 
 {EventEmitter} = require "events"
@@ -117,7 +118,7 @@ class Db extends EventEmitter
 			else #try the failed query with acceptable code again
 				 #unfortunately, it is necessary to reconnect
 				@state = "offline"
-				@queuePull() #process next in the queue
+				@queuePull() #process next query in the queue
 
 		@queue.push qObj #register another query
 		@queuePull() if @queue.length is 1 #process first query in the queue
@@ -258,38 +259,49 @@ class Db extends EventEmitter
 
 		offset = parseInt offset
 		limit = parseInt limit
-		countColName = "count"
 
-		query = """
-				WITH baseQuery AS (
-				#{query}
-				)
-				SELECT #{cols}, COUNT(*) OVER() AS #{countColName}
-				FROM baseQuery
-				OFFSET #{offset} LIMIT #{limit}
-				"""
+		index = query.lastIndexOf "ORDER BY"
+		orderBy = "ORDER BY #{cols}"
 
-		@queryAll query, values, (err, res) =>
+		if index > 0
+			orderBy = query.substring index
+			query = query.substring 0, index
+
+		queryPart1 = "SELECT COUNT(*) FROM (#{query}) AS countResult"
+		queryPart2 = """
+					 SELECT #{cols} FROM (#{query}) AS queryResult
+					 #{orderBy}
+					 OFFSET #{offset} LIMIT #{limit}
+					 """
+
+		getCount = (callback) =>
+			@queryOne queryPart1, values, (err, res) =>
+				callback err, res
+
+		getRows = (callback) =>
+			@queryAll queryPart2, values, (err, res) =>
+				callback err, res
+
+		# execute both tasks in parallel and wait for their results
+		async.parallel [getCount, getRows], (err, res) =>
 			return done err if err
 
 			result =
-				totalCount: if res.length then parseInt res[0].count else 0
+				totalCount: parseInt res[0].count
 				previousOffset: offset - limit
 				currentOffset:  offset
 				nextOffset:     offset + limit
-				data: res
-			
+				data: res[1]
+
 			result.previousOffset = null if result.previousOffset < 0
 			result.nextOffset = null if result.nextOffset > result.totalCount
-
-			#delete "count" column from received data
-			delete entry[countColName] for entry in result.data if result.data.length
 
 			return done null, result
 
 
 	###
 	 Starts a transaction block
+	 requests "done"
 	###
 	begin: (done) =>
 
@@ -298,6 +310,7 @@ class Db extends EventEmitter
 
 	###
 	 Commits current transaction
+	 requests "done"
 	###
 	commit: (done) =>
 
@@ -305,11 +318,25 @@ class Db extends EventEmitter
 
 
 	###
-	 Aborts current transaction
+	 Sets savepoint for current transaction
+	 requests "pointName", "done"
 	###
-	rollback: (done) =>
+	savepoint: (pointName, done) =>
 
-		@query "ROLLBACK", done
+		@query "SAVEPOINT #{pointName}", done
+
+
+	###
+	 Aborts current transaction, may use pointName
+	 to abort it just partialy
+	 requests "done"
+	###
+	rollback: (pointName, done) =>
+		if typeof pointName is "function"
+			done = pointName
+			pointName = null
+
+		if pointName? then @query "ROLLBACK TO SAVEPOINT #{pointName}", done else @query "ROLLBACK", done
 
 
 	###
@@ -369,15 +396,14 @@ class Db extends EventEmitter
 	 The client can be reconnected, by inserting another query
 	###
 	kill: () =>
-		#@state = "killing"
-		if @reconnectTimer? # to prevent reconnecting after kill
-			clearTimeout @reconnectTimer
+		clearTimeout @reconnectTimer if @reconnectTimer? # to prevent reconnecting after kill
+
 		if @client?
 			@queue.length = 0 # clear, but keeps all references to this queue
 			@client.end()
 			@emit "end" if @state isnt "online"
-		if @reconnectTimer? # once more, just for sure
-			clearTimeout @reconnectTimer
+		
+		clearTimeout @reconnectTimer if @reconnectTimer? # once more, just for sure
 
 		@state = "offline"
 		@wantToEnd = no

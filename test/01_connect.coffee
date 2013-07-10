@@ -43,7 +43,9 @@ describe "Immediate initialization", ->
 			"paginate"
 			"begin"
 			"commit"
+			"savepoint"
 			"rollback"
+			"end"
 			"on"
 		]
 		for f in fn
