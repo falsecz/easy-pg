@@ -7,7 +7,7 @@ QUERY_CREATE = "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, n
 
 describe "Querying functions", ->
 	@timeout 10000 # 10sec
-	db = pg connectionStr, lazy: no
+	db = pg connectionStr
 	db.on 'error', (err) ->
 			console.log err
 
@@ -102,5 +102,7 @@ describe "Querying functions", ->
 			for i in [0...PAGE_COUNT]
 				db.paginate i, 10, "_id, number", "SELECT * FROM numbers", (err, res) ->
 					if res.totalCount is PAGE_COUNT and res.nextOffset is null
-						return done() if res.currentOffset is PAGE_COUNT - 1
+						if res.currentOffset is PAGE_COUNT - 1
+							db.end()
+							return done()
 

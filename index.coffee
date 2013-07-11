@@ -26,6 +26,7 @@ class Db extends EventEmitter
 	# opts.lazy = false makes db connection star immediately
 	constructor: (conn, opts={}) ->
 		@queue = [] #create client's queue for queries
+		@transactionBackup = []
 
 		# parse connection string if needed
 		conn = @parseConn conn if typeof conn is "string"
@@ -96,6 +97,31 @@ class Db extends EventEmitter
 
 
 	###
+	 To indicate beginning of transaction
+	###
+	startTransaction: () =>
+		@transactionBackup.length = 0
+		@inTransaction = yes
+
+
+	###
+	 Resets query queue to enable us to start whole
+	 transaction from the beginning
+	###
+	restartTransaction: () =>
+
+		@queue = @transactionBackup.concat @queue
+		
+
+	###
+	 To indicate end of transaction
+	###
+	stopTransaction: () =>
+
+		@inTransaction = no
+
+
+	###
 	 Pushes given input into queue for later dispatching
 	 requires "type" and "query"
 	###
@@ -109,6 +135,10 @@ class Db extends EventEmitter
 		qObj = new QueryObject type, query, values, (err, result) =>
 			@kill() if @wantToEnd
 
+			#switch transaction state
+			@startTransaction() if query is "BEGIN" and not err? #successfull begin
+			@stopTransaction()  if query is "COMMIT" and not err? #successfull commit
+
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
 			unless acceptable err?.code
@@ -117,6 +147,7 @@ class Db extends EventEmitter
 
 			else #try the failed query with acceptable code again
 				 #unfortunately, it is necessary to reconnect
+				@restartTransaction() if @inTransaction
 				@state = "offline"
 				@queuePull() #process next query in the queue
 
@@ -129,7 +160,8 @@ class Db extends EventEmitter
 	 Tries to connect to db if the client state is "offline"
 	###
 	queuePull: (shiftFirst = false) =>
-		@queue.shift() if shiftFirst #shift solved here to make this Pull ALMOST ATOMIC
+		removed = @queue.shift() if shiftFirst #shift solved here to make this Pull ALMOST ATOMIC
+		@transactionBackup.push removed if @inTransaction and removed?
 
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
@@ -261,6 +293,7 @@ class Db extends EventEmitter
 		limit = parseInt limit
 
 		index = query.lastIndexOf "ORDER BY"
+		index = query.lastIndexOf "order by" if index < 0
 		orderBy = "ORDER BY #{cols}"
 
 		if index > 0
@@ -328,7 +361,7 @@ class Db extends EventEmitter
 
 	###
 	 Aborts current transaction, may use pointName
-	 to abort it just partialy
+	 to abort the transaction just partialy
 	 requests "done"
 	###
 	rollback: (pointName, done) =>
@@ -383,12 +416,15 @@ class Db extends EventEmitter
 	 Handles errors
 	 err has to be string or instance of Error
 	###
-	handleError : (err) ->
+	handleError : (err) =>
 		err = new Error err if typeof err is "string"
-		if @listeners("error").length
-			@emit "error", err
-		else
-  			throw err
+
+		if (acceptable err?.code) #if it is not absolute failure, reconnect
+			if (@state isnt "connecting") #if there's not another restart in progress
+				@restartTransaction() if @inTransaction
+				@tryToConnect()
+		else # report error
+			if @listeners("error").length then @emit "error", err else throw err
 
 
 	###
@@ -400,12 +436,14 @@ class Db extends EventEmitter
 
 		if @client?
 			@queue.length = 0 # clear, but keeps all references to this queue
+			@transactionBackup.length = 0
 			@client.end()
 			@emit "end" if @state isnt "online"
 		
 		clearTimeout @reconnectTimer if @reconnectTimer? # once more, just for sure
 
 		@state = "offline"
+		@inTransaction = no
 		@wantToEnd = no
 
 

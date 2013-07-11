@@ -4,7 +4,7 @@ connectionStr = "pg://postgres:123456@localhost:5432/TestDB"
 
 describe "Querying", ->
 	@timeout 10000 # 10sec
-	db = pg connectionStr, lazy: no
+	db = pg connectionStr
 
 	beforeEach ->
 		#@db = pg connectionStr, lazy: no
@@ -45,6 +45,6 @@ describe "Querying", ->
 			db.queryAll """
 				SELECT 1 WHERE 1 = $1 OR 1 = $2 OR 1 = $3 OR 1 = $4
 			""", [1, 1, 1, 1], () ->
-				db.kill()
+				db.end()
 				done()
 

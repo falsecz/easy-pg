@@ -13,7 +13,7 @@ options =
 db = pg connection, options
 
 db.on "error", (err) ->
-	console.log err
+	console.log "err: ",err
 
 db.on "ready", () ->
 	console.log "Deferred PG Client ready..."
@@ -74,9 +74,21 @@ db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number 
 		console.log "CREATE TABLE query fail ...", err if err
 
 # test INSERT
-INSERT_COUNT = 100
+INSERT_COUNT = 600
 c = 1
 pom = 0
+
+###
+při selhání transakce se nejprve zavolá commit, aby se uložil případný savepoint
+
+při dokončení savepoint se může transakční fronta vymazat aý do bodu se savepointem
+
+?NEBO SAVEPOINT VŮBEC NEŘEŠIT?
+
+pokud je to velká chyba, tak se o nic nestarat a normálně pustit err ven k uživateli
+on už si provede rollback, commit na savepoint atd
+
+###
 
 db.begin () ->
 	console.log "transaction begin"
@@ -85,6 +97,8 @@ foo = () ->
 	insertNum c
 	if c is 20 then db.savepoint "x20savepoint", (err, res) ->
 		console.log "savepoint set to first 20"
+	if c is 50 then db.rollback "x20savepoint", () ->
+		console.log "rolled back"
 	return pom = setTimeout(foo, 20) if c++ < INSERT_COUNT
 
 	#in the end
@@ -102,5 +116,5 @@ foo2 = () ->
 		#db.end()
 
 setTimeout foo, 1000
-setTimeout foo2, 1500
-setTimeout foo, 2000
+#setTimeout foo2, 1500
+#setTimeout foo, 2000
