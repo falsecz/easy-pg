@@ -1,6 +1,6 @@
 pg = require "../"
 
-connectionStr = "pg://postgres:123456@localhost:5432/TestDB"
+connectionStr = "pg://postgres:123456@localhost:5432/TestDB?lazy=no"
 
 QUERY_DROP = "DROP TABLE IF EXISTS numbers;"
 QUERY_CREATE = "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);"

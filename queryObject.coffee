@@ -1,5 +1,6 @@
 debug = require('debug') 'easy-pg-qo'
 
+
 ###
  Query Object Class
 

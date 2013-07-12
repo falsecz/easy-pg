@@ -45,7 +45,7 @@ describe "Transactions", ->
 		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
 		db.rollback()
 		db.commit()
-		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
+		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 			return done err if err?
 			return done() if (parseInt res.count, 10) is 0
 
@@ -58,7 +58,25 @@ describe "Transactions", ->
 		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
 		db.rollback "my_savepoint"
 		db.commit()
-		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
-			db.end()
+		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 			return done err if err?
 			return done() if (parseInt res.count, 10) is INSERT_COUNT
+
+	it "nested transaction block", (done) ->
+		INSERT_COUNT = 10
+
+		db.begin()
+		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
+		db.savepoint "my_savepoint"
+		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
+		db.begin()
+		db.rollback "my_savepoint" #will not work
+		db.insert "numbers", number: i for i in [INSERT_COUNT..1] # 10-1
+		db.commit()
+		db.rollback "my_savepoint" #will work
+		db.commit()
+		# result should be 1-10 10-1
+		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
+			db.end()
+			return done err if err?
+			return done() if parseInt(res.count, 10) is 2*INSERT_COUNT

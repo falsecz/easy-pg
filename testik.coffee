@@ -1,4 +1,5 @@
 pg = require "./index.coffee"
+{TransactionStack} = require "#{__dirname}/transactionStack.coffee"
 
 connectionStr = "pg://postgres:123456@localhost:5432/TestDB?lazy=no&opt1=ANDF_011'"
 connection =
@@ -75,22 +76,34 @@ db.query 'DROP TABLE IF EXISTS numbers;', (err, res) ->
 db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);", (err, res) ->
 		console.log "CREATE TABLE query fail ...", err if err
 
+###
+ts = new TransactionStack()
+ts.push {query: "BEGIN"}
+ts.push {query: "INSERT x INTO y"}
+ts.push {query: "BEGIN"}
+ts.push {query: "INSERT x INTO y"}
+ts.push {query: "SAVEPOINT fx"}
+ts.push {query: "INSERT x INTO y"}
+ts.push {query: "INSERT x INTO y"}
+ts.push {query: "BEGIN"}
+ts.push {query: "COMMIT"}
+ts.push {query: "INSERT x INTO y"}
+ts.push {query: "ROLLBACK TO fx"}
+ts.push {query: "ROLLBACK TO fx"}
+ts.push {query: "ROLLBACK TO fx"}
+ts.push {query: "ROLLBACK TO fx"}
+ts.push {query: "INSERT x INTO y"}
+ts.push {query: "INSERT x INTO y"}
+ts.toString()
+ts.push {query: "COMMIT"}
+ts.toString()
+###
+
 # test INSERT
-INSERT_COUNT = 100
+INSERT_COUNT = 1000
 c = 1
 pom = 0
 
-###
-při selhání transakce se nejprve zavolá commit, aby se uložil případný savepoint
-
-při dokončení savepoint se může transakční fronta vymazat aý do bodu se savepointem
-
-?NEBO SAVEPOINT VŮBEC NEŘEŠIT?
-
-pokud je to velká chyba, tak se o nic nestarat a normálně pustit err ven k uživateli
-on už si provede rollback, commit na savepoint atd
-
-###
 
 db.begin () ->
 	console.log "transaction begin"

@@ -4,7 +4,7 @@ pg = require "pg" # . native TODO
 
 {EventEmitter} = require "events"
 {QueryObject} = require "#{__dirname}/queryObject.coffee"
-
+{TransactionStack} = require "#{__dirname}/transactionStack.coffee"
 
 ###
  Deferred Postgresql Client Class
@@ -29,7 +29,7 @@ class Db extends EventEmitter
 	###
 	constructor: (conn) ->
 		@queue = [] #create client's queue for queries
-		@transactionBackup = []
+		@transaction = new TransactionStack()
 
 		# parse connection string if needed
 		conn = @parseConn conn if typeof conn is "string"
@@ -105,7 +105,7 @@ class Db extends EventEmitter
 	 To indicate beginning of transaction
 	###
 	startTransaction: () =>
-		@transactionBackup.length = 0
+		@transaction.flush()
 		@inTransaction = yes
 
 
@@ -114,8 +114,8 @@ class Db extends EventEmitter
 	 transaction from the beginning
 	###
 	restartTransaction: () =>
-
-		@queue = @transactionBackup.concat @queue
+		@queue = @transaction.queue.concat @queue
+		@transaction.flush()
 		
 
 	###
@@ -140,9 +140,8 @@ class Db extends EventEmitter
 		qObj = new QueryObject type, query, values, (err, result) =>
 			@kill() if @wantToEnd
 
-			#switch transaction state
-			@startTransaction() if query is "BEGIN" and not err? #successfull begin
-			@stopTransaction()  if query is "COMMIT" and not err? #successfull commit
+			#switch transaction state with successful begin
+			@startTransaction() if query is "BEGIN" and @transaction.isEmpty() and not err?
 
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
@@ -166,7 +165,8 @@ class Db extends EventEmitter
 	###
 	queuePull: (shiftFirst = false) =>
 		removed = @queue.shift() if shiftFirst #shift solved here to make this Pull ALMOST ATOMIC
-		@transactionBackup.push removed if @inTransaction and removed?
+		@transaction.push removed if @inTransaction and removed?
+		@stopTransaction() if @inTransaction and @transaction.isEmpty() #transaction done
 
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
@@ -449,7 +449,7 @@ class Db extends EventEmitter
 
 		if @client?
 			@queue.length = 0 # clear, but keeps all references to this queue
-			@transactionBackup.length = 0
+			@transaction.flush()
 			@client.end()
 			@emit "end" if @state isnt "online"
 		
