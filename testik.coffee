@@ -1,5 +1,6 @@
 pg = require "./index.coffee"
 
+connectionStr = "pg://postgres:123456@localhost:5432/TestDB?lazy=no&opt1=ANDF_011'"
 connection =
 	user: "postgres"
 	pswd: "123456"
@@ -10,7 +11,8 @@ connection =
 options =
 	lazy: no
 
-db = pg connection, options
+#db = pg connection, options
+db = pg connectionStr, options
 
 db.on "error", (err) ->
 	console.log "err: ",err
@@ -74,7 +76,7 @@ db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number 
 		console.log "CREATE TABLE query fail ...", err if err
 
 # test INSERT
-INSERT_COUNT = 600
+INSERT_COUNT = 100
 c = 1
 pom = 0
 

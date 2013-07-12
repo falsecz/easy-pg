@@ -1,6 +1,6 @@
 pg = require "../"
 
-connectionStr = "pg://postgres:123456@localhost:5432/TestDB"
+connectionStr = "pg://postgres:123456@localhost:5432/TestDB?lazy=no"
 
 describe "Querying", ->
 	@timeout 10000 # 10sec
@@ -44,7 +44,7 @@ describe "Querying", ->
 		it "with long data callback called", (done) ->
 			db.queryAll """
 				SELECT 1 WHERE 1 = $1 OR 1 = $2 OR 1 = $3 OR 1 = $4
-			""", [1, 1, 1, 1], () ->
+			""", [1, 1, 1, 1], (err, res) ->
 				db.end()
-				done()
+				return done err, res
 

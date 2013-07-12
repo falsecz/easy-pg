@@ -1,6 +1,6 @@
 pg = require "../"
 
-connectionStr = "pg://postgres:123456@localhost:5432/TestDB"
+connectionStr = "pg://postgres:123456@localhost:5432/TestDB?some_param=whatever"
 
 QUERY_DROP = "DROP TABLE IF EXISTS numbers;"
 QUERY_CREATE = "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);"
@@ -9,7 +9,7 @@ describe "Transactions", ->
 	@timeout 10000 # 10sec
 	db = pg connectionStr
 	db.on 'error', (err) ->
-			console.log err
+			return done err if err?
 
 	beforeEach ->
 		#clear db-table numbers
@@ -23,6 +23,7 @@ describe "Transactions", ->
 		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
 		db.commit()
 		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
+			return done err if err?
 			return done() if (parseInt res.count, 10) is INSERT_COUNT
 
 	it "BEGIN - ROLLBACK - COMMIT", (done) ->
@@ -31,8 +32,8 @@ describe "Transactions", ->
 		db.begin()
 		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
 		db.rollback()
-		db.commit()
 		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
+			return done err if err?
 			return done() if (parseInt res.count, 10) is 0
 
 	it "BEGIN - SAVEPOINT - ROLLBACK - COMMIT", (done) ->
@@ -45,6 +46,7 @@ describe "Transactions", ->
 		db.rollback()
 		db.commit()
 		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
+			return done err if err?
 			return done() if (parseInt res.count, 10) is 0
 
 	it "BEGIN - SAVEPOINT - ROLLBACK TO - COMMIT", (done) ->
@@ -58,4 +60,5 @@ describe "Transactions", ->
 		db.commit()
 		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
 			db.end()
+			return done err if err?
 			return done() if (parseInt res.count, 10) is INSERT_COUNT

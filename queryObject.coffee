@@ -3,15 +3,15 @@ debug = require('debug') 'easy-pg-qo'
 ###
  Query Object Class
 
- Contains all necessary info about requeste pg query. It
- can be sent to pgdb by calling "callBy"
+ Contains all necessary info about requested pg query.
+ It can be sent to pgdb by calling "callBy"
 ###
 class QueryObject
 
 	###
-	 Query Object constructor, if query type if unknown
+	 Query Object constructor, if query type is unknown
 	 it's set to "QueryAll"
-	 requires "type", "query", "done" -it's callback
+	 @requires "type", "query", "done" -it's callback
 	###
 	constructor: (type, query, values, done) ->
 		#(type, query, done)
@@ -30,6 +30,7 @@ class QueryObject
 
 	###
 	 Forces this query to be sent to the pgdb
+	 @requires "client" pgdb connection client
 	###
 	callBy: (client) =>
 
@@ -38,6 +39,7 @@ class QueryObject
 
 	###
 	 Prints this query out in a readable form
+	 @returns string representation of this query
 	###
 	toString: () =>
 

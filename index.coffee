@@ -1,6 +1,5 @@
 debug = require("debug") "easy-pg"
 url = require "url"
-async = require "async"
 pg = require "pg" # . native TODO
 
 {EventEmitter} = require "events"
@@ -12,7 +11,10 @@ pg = require "pg" # . native TODO
 
  Contains queue of queries processed only in the case of established
  connection. Connection is established only after the first query is
- inserted into the client's queue, if options.lazy is set to "true".
+ inserted into the client's queue, if options.lazy is set to "true"
+ or not set. It is able to keep itself connected even if some not fatal
+ errors occure and continue in query queue processing. It is able to
+ keep interrupted transaction on track as well.
 ###
 class Db extends EventEmitter
 
@@ -20,41 +22,42 @@ class Db extends EventEmitter
 	requiredConnParams = ["user", "pswd", "host", "port", "db"]
 
 
-	# Constructor of the deferred postgresql client
-	# requires "conn" object with connection parameters, but it
-	# is possible to replace "conn" object by connection string
-	# opts.lazy = false makes db connection star immediately
-	constructor: (conn, opts={}) ->
+	###
+	 Constructor of deferred postgresql client
+	 opts.lazy = false makes db connection star immediately
+	 @requires "conn" - connection string or object { user, pswd, host, port, db, opts{} }
+	###
+	constructor: (conn) ->
 		@queue = [] #create client's queue for queries
 		@transactionBackup = []
 
 		# parse connection string if needed
 		conn = @parseConn conn if typeof conn is "string"
 
-		if typeof conn is "object"
-			# check connection parameters
-			for param in requiredConnParams
-				unless (param of conn and conn["#{param}"]?)
-					return @handleError "#{param} missing in connection parameters"
+		return @handleError "wrong connection parameter - not string, not object" if typeof conn isnt "object"
 
-			#create connection string for pg
-			connString = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
+		# check connection parameters
+		for param in requiredConnParams
+			unless (param of conn and conn["#{param}"]?)
+				return @handleError "#{param} missing in connection parameters"
 
-		else #just use the given connection string
-			return @handleError "wrong connection parameter - not string, not object"
+		#create connection string for pg
+		cStr = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
 
+		#append options from opts
+		if Object.keys(conn.opts).length #keyCount
+			cStr += "?"
+			cStr += "#{key}=#{val}&" for key, val of conn.opts
+			cStr = cStr.substring 0, cStr.length-1 #remove last "&"
+		else delete conn.opts if conn.opts?
 
-		@connectionString = connString #set client's connection string
-		@state = "offline"             #set client's connection state
+		@connectionString = cStr #set client's connection string
+		@state = "offline"       #set client's connection state
 
-		# theres nothing more to do if options does not exist
-		return unless opts?
+		# there's nothing more to do if options does not exist
+		return unless conn.opts?
 
-		@tryToConnect() if opts.lazy is no
-
-		# ONLY IF SET IN OPTS
-		# 	@query """ SET datestyle = "iso, mdy" """
-		# 	@query """ set search_path public """
+		@tryToConnect() if conn.opts.lazy is "no"
 
 
 	###
@@ -85,6 +88,8 @@ class Db extends EventEmitter
 	 Returns true if the given postgresql error code
 	 is acceptable = there is no reason to remove query
 	 with this code from our queue or to throw error
+	 @requires "code" -it is string with pg err code
+	 @returns true if err is not fatal
 	###
 	acceptable = (code) ->
 		return no unless code?
@@ -123,7 +128,7 @@ class Db extends EventEmitter
 
 	###
 	 Pushes given input into queue for later dispatching
-	 requires "type" and "query"
+	 @requires "type", "query"
 	###
 	queuePush: (type, query, values, done) =>
 		#for the case of calling (type, query, done)
@@ -179,7 +184,7 @@ class Db extends EventEmitter
 
 	###
 	 Returns full DB result with data in the ".rows" entry
-	 requires just "query"
+	 @requires "query"
 	###
 	query: (query, values, done) =>
 
@@ -188,7 +193,7 @@ class Db extends EventEmitter
 
 	###
 	 Returns null or only the first row of the original DB result
-	 requires just "query"
+	 @requires "query"
 	###
 	queryOne: (query, values, done) =>
 
@@ -197,7 +202,7 @@ class Db extends EventEmitter
 
 	###
 	 Returns null or array of rows of the original DB result
-	 requires just "query"
+	 @requires "query"
 	###
 	queryAll: (query, values, done) =>
 
@@ -206,7 +211,7 @@ class Db extends EventEmitter
 
 	###
 	 Inserts "data" into specified "table"
-	 requires "table" and "data"
+	 @requires "table", "data"
 	###
 	insert: (table, data, done) =>
 		parsed = @parseData data # parse data info arrays
@@ -217,7 +222,7 @@ class Db extends EventEmitter
 
 	###
 	 Updates specified "table" using given "data"
-	 requires "table", "data", "where", "done"
+	 @requires "table", "data", "where"
 	###
 	update: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
@@ -240,8 +245,9 @@ class Db extends EventEmitter
 
 	###
 	 Updates (inserts) data in the specified "table"
-	 requires "table", "data", "where", "whereData", "done"
-	 ! requires Postgresql version 9.2, 9.2, 9.0 or 8.4 !
+	 @requires "table", "data", "where", "whereData"
+	 @note requires Postgresql version 8.4, 9.0 or higher
+	 because of "WITH" query statement
 	###
 	upsert: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
@@ -282,7 +288,7 @@ class Db extends EventEmitter
 
 	###
 	 Returns paginated "query" result containing max "limit" rows
-	 requires "offset", "limit", "cols", "query", "done"
+	 @requires "offset", "limit", "cols", "query"
 	###
 	paginate: (offset, limit, cols, query, values, done) =>
 		if typeof values is "function"
@@ -292,6 +298,7 @@ class Db extends EventEmitter
 		offset = parseInt offset
 		limit = parseInt limit
 
+		# separate query and its ORDER BY
 		index = query.lastIndexOf "ORDER BY"
 		index = query.lastIndexOf "order by" if index < 0
 		orderBy = "ORDER BY #{cols}"
@@ -300,6 +307,11 @@ class Db extends EventEmitter
 			orderBy = query.substring index
 			query = query.substring 0, index
 
+		# queries we need to perform pagination
+		#
+		# this would be much safer using transaction
+		# BEGIN  queryPart1  queryPart2  COMMIT
+		# but it is about 20% slower
 		queryPart1 = "SELECT COUNT(*) FROM (#{query}) AS countResult"
 		queryPart2 = """
 					 SELECT #{cols} FROM (#{query}) AS queryResult
@@ -307,34 +319,33 @@ class Db extends EventEmitter
 					 OFFSET #{offset} LIMIT #{limit}
 					 """
 
-		getCount = (callback) =>
-			@queryOne queryPart1, values, (err, res) =>
-				callback err, res
+		clbckP1count = -1 #indicates err state if not changed
+		callbackPart1 = (err, res) =>
+			return done err if err?
+			clbckP1count = parseInt res.count
 
-		getRows = (callback) =>
-			@queryAll queryPart2, values, (err, res) =>
-				callback err, res
-
-		# execute both tasks in parallel and wait for their results
-		async.parallel [getCount, getRows], (err, res) =>
-			return done err if err
+		callbackPart2 = (err, res) =>
+			return if clbckP1count is -1
+			return done err if err?
 
 			result =
-				totalCount: parseInt res[0].count
+				totalCount: clbckP1count
 				previousOffset: offset - limit
 				currentOffset:  offset
 				nextOffset:     offset + limit
-				data: res[1]
+				data: res
 
 			result.previousOffset = null if result.previousOffset < 0
 			result.nextOffset = null if result.nextOffset > result.totalCount
 
 			return done null, result
 
+		@queryOne queryPart1, values, callbackPart1
+		@queryAll queryPart2, values, callbackPart2
+
 
 	###
 	 Starts a transaction block
-	 requests "done"
 	###
 	begin: (done) =>
 
@@ -343,7 +354,6 @@ class Db extends EventEmitter
 
 	###
 	 Commits current transaction
-	 requests "done"
 	###
 	commit: (done) =>
 
@@ -352,7 +362,7 @@ class Db extends EventEmitter
 
 	###
 	 Sets savepoint for current transaction
-	 requests "pointName", "done"
+	 @requires "pointName"
 	###
 	savepoint: (pointName, done) =>
 
@@ -362,7 +372,6 @@ class Db extends EventEmitter
 	###
 	 Aborts current transaction, may use pointName
 	 to abort the transaction just partialy
-	 requests "done"
 	###
 	rollback: (pointName, done) =>
 		if typeof pointName is "function"
@@ -374,18 +383,21 @@ class Db extends EventEmitter
 
 	###
 	 Parses connection object from connection string
-	 requires "str" with connection string
+	 @requires "str" with connection string
+	 @returns object with connection information
 	###
 	parseConn: (str) ->
 		# url parse expects spaces encoded as %20
-		result = url.parse encodeURI str
+		result = url.parse (encodeURI str), true
 		auth = result.auth?.split ":"
+
 		connObj =
 			user : auth[0] if auth?[0]?.length > 0
 			pswd : auth[1] if auth?[1]?.length > 0
 			host : result.hostname if result.hostname?.length > 0
 			port : result.port if result.port?.length > 0
-			db : result.pathname.slice(1) if result.pathname?.length > 1
+			db   : result.pathname.slice(1) if result.pathname?.length > 1
+			opts : result.query
 
 		return connObj
 
@@ -393,7 +405,8 @@ class Db extends EventEmitter
 	###
 	 Parses given data object to get format of this data
 	 useful for client's query functions
-	 returned object contains: "keys", "values", "valueIDs", "sets"
+	 @requires "data" object
+	 @returns { "keys", "values", "valueIDs", "sets" }
 	###
 	parseData: (data) ->
 		keys = []   # array of keys
@@ -414,7 +427,7 @@ class Db extends EventEmitter
 
 	###
 	 Handles errors
-	 err has to be string or instance of Error
+	 @requires "err", it has to be string or instance of Error
 	###
 	handleError : (err) =>
 		err = new Error err if typeof err is "string"

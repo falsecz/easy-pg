@@ -19,11 +19,12 @@ describe "Querying functions", ->
 	describe "insert", ->
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 99, (err, res) ->
-				done() if (res? and res.number is 99)
+				return done err if err?
+				return done() if (res? and res.number is 99)
 
 		it "returns error on wrong query", (done) ->
-			db.insert "table", value: 0, (err, res) =>
-				done() if err?
+			db.insert "table", value: 0, (err, res) ->
+				return done() if err?
 
 		it "successful sequence of 100 fast queries", (done) ->
 			INSERT_COUNT = 100
@@ -33,17 +34,19 @@ describe "Querying functions", ->
 
 			#get number of inserts
 			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore error
-				done() if (parseInt res.count, 10) is INSERT_COUNT
+				return done err if err?
+				return done() if (parseInt res.count, 10) is INSERT_COUNT
 
 	describe "update", ->
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 99
-			db.update "numbers", number: 0, "number = 99", (err, res) =>
-				done() if (res? and res.number is 0)
+			db.update "numbers", number: 0, "number = 99", (err, res) ->
+				return done err if err?
+				return done() if (res? and res.number is 0)
 
 		it "returns error on wrong query", (done) ->
-			db.update "table", value: 0, "value = 99", (err, res) =>
-				done() if err?
+			db.update "table", value: 0, "value = 99", (err, res) ->
+				return done() if err?
 
 		it "successful sequence of 100 fast queries", (done) ->
 			UPDATE_COUNT = INSERT_COUNT = 100
@@ -55,17 +58,19 @@ describe "Querying functions", ->
 				db.update "numbers", number: 0, "number = #{j}" #ignore error
 
 			db.queryOne "SELECT SUM(number) FROM numbers;", (err, res) -> #ignore error
-				done() if (parseInt res.sum, 10) is 0
+				return done err if err?
+				return done() if (parseInt res.sum, 10) is 0
 
 	describe "upsert", ->
 		it "returns result on right query", (done) ->
-			db.upsert "numbers", number: 0, "number = 0", (err, res) =>
-				db.upsert "numbers", number: 0, "number = 0", (err, res) =>
-					done() if (res? and res.coalesce is 1)
+			db.upsert "numbers", number: 0, "number = 0", (err, res) ->
+				db.upsert "numbers", number: 0, "number = 0", (err, res) ->
+					return done err if err?
+					return done() if (res? and res.coalesce is 1)
 
 		it "returns error on wrong query", (done) ->
-			db.upsert "table", value: 0, "value = 99", (err, res) =>
-				done() if err?
+			db.upsert "table", value: 0, "value = 99", (err, res) ->
+				return done() if err?
 
 		it "successful sequence of 100 fast queries", (done) ->
 			UPSERT_COUNT = 50
@@ -77,7 +82,8 @@ describe "Querying functions", ->
 				db.upsert "numbers", number: 0, "number = #{j}" #ignore error
 
 			db.queryOne "SELECT COUNT(number) FROM numbers;", (err, res) -> #ignore error
-				done() if (parseInt res.count, 10) is UPSERT_COUNT
+				return done err if err?
+				return done() if (parseInt res.count, 10) is UPSERT_COUNT
 
 	describe "paginate", ->
 		it "returns result on right query", (done) ->
@@ -87,6 +93,7 @@ describe "Querying functions", ->
 				db.insert "numbers", number: i #ignore error
 
 			db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9], (err, res) ->
+				return done err if err?
 				return done() if res.totalCount is 1
 
 		it "returns error on wrong query", (done) ->
@@ -101,6 +108,10 @@ describe "Querying functions", ->
 
 			for i in [0...PAGE_COUNT]
 				db.paginate i, 10, "_id, number", "SELECT * FROM numbers", (err, res) ->
+					if err?
+						db.end()
+						return done err
+					# if last page
 					if res.totalCount is PAGE_COUNT and res.nextOffset is null
 						if res.currentOffset is PAGE_COUNT - 1
 							db.end()

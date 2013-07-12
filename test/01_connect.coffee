@@ -29,7 +29,7 @@ describe "Immediate initialization", ->
 	@timeout 10000 # 10sec
 
 	it "create instance", () ->
-		db = pg connectionStr, lazy: no
+		db = pg connectionStr + "?lazy=no"
 		db.on "ready", db.kill
 
 		assert.isObject db, "db must be an object"
@@ -52,31 +52,31 @@ describe "Immediate initialization", ->
 			assert.isFunction db[f], "must have #{f} function"
 
 	it "throw error on incomplete connection string information", () ->
-		assert.throws (-> pg incompleteConnectionStr, lazy: no ), Error
+		assert.throws (-> pg incompleteConnectionStr + "?lazy=no"), Error
 
 	it "throw error on incomplete connection object information", () ->
-		assert.throws (-> pg incompleteConnection, lazy: no ), Error
+		assert.throws (-> pg incompleteConnection + "?lazy=no"), Error
 
 	it "throw error on wrong type of connection parameter", () ->
-		assert.throws (-> pg 90210, lazy: no ), Error
+		assert.throws (-> pg 90210 ), Error
 
 	it "emit error on couldn't connect", (done) ->
-		db = pg wrongConnectionStr, lazy: no
+		db = pg wrongConnectionStr + "?lazy=no"
 		db.on "error", (err) ->
 			db.end() # to stop calling ConnErr all over again
 			return done()
 
 	it "emit ready on successfull connection", (done) ->
-		db = pg connectionStr, lazy: no
-		db.on "ready", (err) ->
+		db = pg connectionStr + "?lazy=no"
+		db.on "ready", (err, res) ->
 			db.end()
-			return done()
+			return done err, res
 
 describe "Deferred initialization", ->
 	@timeout 10000 # 10sec
 
 	it "create instance", () ->
-		db = pg connectionStr, lazy: yes
+		db = pg connectionStr + "?lazy=yes"
 
 		assert.isObject db, "db must be an object"
 		fn = [
@@ -116,9 +116,9 @@ describe "Deferred initialization", ->
 
 	it "emit ready on successfull connection", (done) ->
 		db = pg connectionStr
-		db.on "ready", (err) ->
+		db.on "ready", (err, res) ->
 			db.end()
-			return done()
+			return done err, res
 
 		setTimeout ( ->
 			db.query "SELECT 1 WHERE 1 = 1"
@@ -129,20 +129,18 @@ describe "Disconnection test", ->
 
 	# call kill to stop client working
 	it "emit end on calling kill", (done) ->
-		db = pg connectionStr, lazy: no
+		db = pg connectionStr + "?lazy=no"
 		db.on "ready", () ->
 			setTimeout db.kill, 200
 
-		db.on "end", () ->
-			return done()
+		db.on "end", done
 
 	it "emit end on calling end", (done) ->
-		db = pg connectionStr, lazy: no
+		db = pg connectionStr + "?lazy=no"
 		db.on "ready", () ->
 			setTimeout db.end, 200
 
-		db.on "end", () ->
-			return done()
+		db.on "end", done
 
 	# insert query, kill clients work, insert another query to revive client
 	it "end and revive by pushing new query afterwards", (done) ->
@@ -154,7 +152,7 @@ describe "Disconnection test", ->
 
 		db.query "SELECT 1 WHERE 1 = 1"
 		db.query "SELECT 1 WHERE 1 = 1"
-		db.query "SELECT 1 WHERE 1 = 1"#, (err, res) ->
+		db.query "SELECT 1 WHERE 1 = 1"
 		db.end()
 
 		setTimeout ( ->
