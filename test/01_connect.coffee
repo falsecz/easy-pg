@@ -1,26 +1,26 @@
 pg = require "../"
 
-connectionStr = "pg://postgres:123456@localhost:5432/TestDB"
+connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test"
 connection =
 	user: "postgres"
-	pswd: "123456"
-	host: "localhost"
+	#pswd: "123456" - not required
+	host: "127.0.0.1"
 	port: "5432"
 	db:   "TestDB"
 
-incompleteConnectionStr = "pg://postgres:123456/TestDB"
+incompleteConnectionStr = "pg://postgres/myapp_test"
 incompleteConnection =
 	user: "postgres"
-	pswd: "123456"
-	#host: "localhost"
+	#pswd: "123456" - not required
+	#host: "127.0.0.1"
 	#port: "5432"
 	db:   "TestDB"
 
-wrongConnectionStr = "pg://postgres:123456@localhost:5432/unknown_database"
+wrongConnectionStr = "pg://postgres@127.0.0.1:5432/unknown_database"
 wrongConnection =
 	user: "postgres"
-	pswd: "123456"
-	host: "localhost"
+	#pswd: "123456" - not required
+	host: "127.0.0.1"
 	port: "5432"
 	db:   "unknown_database"
 

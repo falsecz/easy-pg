@@ -1,6 +1,6 @@
 pg = require "../"
 
-connectionStr = "pg://postgres:123456@localhost:5432/TestDB?lazy=no"
+connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test?lazy=no"
 
 describe "Querying", ->
 	@timeout 10000 # 10sec

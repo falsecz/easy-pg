@@ -19,7 +19,11 @@ pg = require "pg" # . native TODO
 class Db extends EventEmitter
 
 	# connection parameters required by this client
-	requiredConnParams = ["user", "pswd", "host", "port", "db"]
+	requiredConnParams = ["user",
+						  #"pswd",
+						  "host",
+						  "port",
+						  "db" ]
 
 
 	###
@@ -42,7 +46,9 @@ class Db extends EventEmitter
 				return @handleError "#{param} missing in connection parameters"
 
 		#create connection string for pg
-		cStr = "pg://#{conn.user}:#{conn.pswd}@#{conn.host}:#{conn.port}/#{conn.db}"
+		cStr  = "pg://#{conn.user}"
+		cStr += ":#{conn.pswd}" if conn.pswd?
+		cStr += "@#{conn.host}:#{conn.port}/#{conn.db}"
 
 		#append options from opts
 		if Object.keys(conn.opts).length #keyCount
@@ -473,3 +479,4 @@ class Db extends EventEmitter
 
 module.exports = (connString, options) ->
 	return new Db connString, options
+	

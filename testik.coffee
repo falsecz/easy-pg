@@ -1,7 +1,7 @@
 pg = require "./index.coffee"
 {TransactionStack} = require "#{__dirname}/transactionStack.coffee"
 
-connectionStr = "pg://postgres:123456@localhost:5432/TestDB?lazy=no&opt1=ANDF_011'"
+connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test?lazy=no&opt1=ANDF_011'"
 connection =
 	user: "postgres"
 	pswd: "123456"
@@ -62,12 +62,6 @@ insertName = (first, last) ->
 		console.log res
 
 
-insertName "David", "Gosh"
-
-###getName "Andrej"
-getAllNames()
-getFirstOfAllNames()
-getNameRaw "Andrej"###
 
 #clear db-table numbers
 db.query 'DROP TABLE IF EXISTS numbers;', (err, res) ->
