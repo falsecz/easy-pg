@@ -521,6 +521,6 @@ class Db extends EventEmitter
 module.exports = (conn) ->
 	return new Db conn
 
-module.exports.__defineGetter__ "native", () ->
+module.exports.__defineGetter__ "native", ->
 	pg = require("pg").native
 	return module.exports

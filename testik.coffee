@@ -1,7 +1,10 @@
-pg = require("#{__dirname}/index.coffee").native
+NATIVE = 1
+pg = if NATIVE then require("#{__dirname}/index.coffee").native else pg = require "#{__dirname}/index.coffee"
+
 
 connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test"
 connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public"
+
 db = pg connectionStr+connectionOpts
 
 db.on "error", (err) ->
