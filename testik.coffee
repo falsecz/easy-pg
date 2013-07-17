@@ -1,19 +1,8 @@
-pg = require "./index.coffee"
-{TransactionStack} = require "#{__dirname}/transactionStack.coffee"
+pg = require("#{__dirname}/index.coffee").native
 
-connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test?lazy=no&opt1=ANDF_011'"
-connection =
-	user: "postgres"
-	pswd: "123456"
-	host: "localhost"
-	port: "5432"
-	db:   "TestDB"
-
-options =
-	lazy: no
-
-#db = pg connection, options
-db = pg connectionStr, options
+connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test"
+connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public"
+db = pg connectionStr+connectionOpts
 
 db.on "error", (err) ->
 	console.log "err: ",err
@@ -62,45 +51,27 @@ insertName = (first, last) ->
 		console.log res
 
 
+console.log "db state: ", db.state
 
-#clear db-table numbers
-db.query 'DROP TABLE IF EXISTS numbers;', (err, res) ->
-		console.log "DROP TABLE query fail ...", err if err
-
-db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);", (err, res) ->
-		console.log "CREATE TABLE query fail ...", err if err
-
-###
-ts = new TransactionStack()
-ts.push {query: "BEGIN"}
-ts.push {query: "INSERT x INTO y"}
-ts.push {query: "BEGIN"}
-ts.push {query: "INSERT x INTO y"}
-ts.push {query: "SAVEPOINT fx"}
-ts.push {query: "INSERT x INTO y"}
-ts.push {query: "INSERT x INTO y"}
-ts.push {query: "BEGIN"}
-ts.push {query: "COMMIT"}
-ts.push {query: "INSERT x INTO y"}
-ts.push {query: "ROLLBACK TO fx"}
-ts.push {query: "ROLLBACK TO fx"}
-ts.push {query: "ROLLBACK TO fx"}
-ts.push {query: "ROLLBACK TO fx"}
-ts.push {query: "INSERT x INTO y"}
-ts.push {query: "INSERT x INTO y"}
-ts.toString()
-ts.push {query: "COMMIT"}
-ts.toString()
-###
 
 # test INSERT
-INSERT_COUNT = 1000
+INSERT_COUNT = 100
 c = 1
 pom = 0
 
 
-db.begin () ->
-	console.log "transaction begin"
+fooStart = () ->
+	#clear db-table numbers
+	db.query 'DROP TABLE IF EXISTS numbers;', (err, res) ->
+		console.log "DROP TABLE query fail ...", err if err
+
+	db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);", (err, res) ->
+		console.log "CREATE TABLE query fail ...", err if err
+
+	db.begin () ->
+		console.log "transaction begin"
+	
+	foo()
 
 foo = () ->
 	insertNum c
@@ -116,14 +87,4 @@ foo = () ->
 		db.end()
 
 
-	
-foo2 = () ->
-	console.log "db.rollback()"
-	clearTimeout pom
-	db.rollback "x20savepoint", () ->
-		console.log "rolled back"
-		#db.end()
-
-setTimeout foo, 1000
-#setTimeout foo2, 1500
-#setTimeout foo, 2000
+setTimeout fooStart, 1000

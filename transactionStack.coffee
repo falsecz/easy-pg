@@ -19,7 +19,7 @@ class TransactionStack
 
 	###
 	 Returns true if this stack class is empty
-	 @returns true if transaction query queue is empty
+	 @returns  true if transaction query queue is empty
 	###
 	isEmpty: () =>
 

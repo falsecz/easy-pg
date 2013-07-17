@@ -40,7 +40,7 @@ class QueryObject
 
 	###
 	 Prints this query out in a readable form
-	 @returns string representation of this query
+	 @returns  string representation of this query
 	###
 	toString: () =>
 
