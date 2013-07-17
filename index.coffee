@@ -26,7 +26,7 @@ class Db extends EventEmitter
 						  "port",
 						  "db"
 						 ]
-	
+
 	#handling for individual options
 	optsHandler =
 		lazy: (client, val) ->
@@ -293,7 +293,7 @@ class Db extends EventEmitter
 			@transaction.flush()
 			@client.end()
 			@emit "end" if @state isnt "online"
-		
+
 		clearTimeout @reconnectTimer if @reconnectTimer? # once more, just for sure
 
 		@state = "offline"
@@ -369,7 +369,7 @@ class Db extends EventEmitter
 	_transRestart: () =>
 		@queue = @transaction.queue.concat @queue
 		@transaction.flush()
-		
+
 
 	###
 	 To indicate end of transaction
@@ -420,7 +420,7 @@ class Db extends EventEmitter
 	###
 	_queuePush: (type, query, values, done) =>
 		qObj = @_createQueryObject type, query, values, done
-		
+
 		@queue.push qObj #register another query
 		@_queuePull() if @queue.length is 1 #process first query in the queue
 
@@ -430,7 +430,7 @@ class Db extends EventEmitter
 	###
 	_optsPush: (type, query, values, done) =>
 		qObj = @_createQueryObject type, query, values, done
-		
+
 		@optsQueue.push qObj #register another query
 
 
@@ -468,8 +468,8 @@ class Db extends EventEmitter
 		auth = result.auth?.split ":"
 
 		connObj =
-			user : auth[0] if auth?[0]?.length > 0
-			pswd : auth[1] if auth?[1]?.length > 0
+			user : (auth[0] if auth?[0]?.length > 0)
+			pswd : (auth[1] if auth?[1]?.length > 0)
 			host : result.hostname if result.hostname?.length > 0
 			port : result.port if result.port?.length > 0
 			db   : result.pathname.slice(1) if result.pathname?.length > 1
@@ -498,7 +498,7 @@ class Db extends EventEmitter
 			sets.push "#{key} = $#{i}"
 			i++
 
-		return { keys: keys, values: vals, valueIDs: valIds, sets: sets }	
+		return { keys: keys, values: vals, valueIDs: valIds, sets: sets }
 
 
 	###
