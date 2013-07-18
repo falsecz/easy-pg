@@ -62,11 +62,17 @@ describe "Querying functions", ->
 				return done() if (parseInt res.sum, 10) is 0
 
 	describe "upsert", ->
+		# insert, and uppsert causing one insert followed by two updates expected
 		it "returns result on right query", (done) ->
-			db.upsert "numbers", number: 0, "number = 0", (err, res) ->
-				db.upsert "numbers", number: 0, "number = 0", (err, res) ->
+			db.insert "numbers", number: 0 #ignore error
+			db.upsert "numbers", number: 1, "number = $1", [2], (err, res) ->
+				return done err if err?
+				unless res[0]?.operation is "insert" and res.length is 1
+					return done new Error "upsert-insert failed"
+				db.upsert "numbers", number: 0, "number = $1 OR number = $2", [0, 1], (err, res) ->
 					return done err if err?
-					return done() if (res? and res.coalesce is 1)
+					if res[0]?.operation is "update" and res.length is 2 then return done()
+					else return done new Error "upsert-update failed"
 
 		it "returns error on wrong query", (done) ->
 			db.upsert "table", value: 0, "value = 99", (err, res) ->
@@ -79,7 +85,7 @@ describe "Querying functions", ->
 				db.upsert "numbers", number: i, "number = #{i}" #ignore error
 
 			for j in [0...UPSERT_COUNT]
-				db.upsert "numbers", number: 0, "number = #{j}" #ignore error
+				db.upsert "numbers", number: 0, "number = $1", [j] #ignore error
 
 			db.queryOne "SELECT COUNT(number) FROM numbers;", (err, res) -> #ignore error
 				return done err if err?

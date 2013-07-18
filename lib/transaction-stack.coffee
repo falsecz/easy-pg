@@ -5,36 +5,36 @@ if (typeof String::startsWith != 'function')
     return this.slice(0, str.length) == str
 
 ###
- Simple stack for correct transaction history handling
+Simple stack for correct transaction history handling
 ###
 class TransactionStack
 
 	###
-	 Constructor of the stack
-	 creates buffers for queries
+	Constructor of the stack
+	creates buffers for queries
 	###
 	constructor: () ->
 		@stack = [] #stack for transaction
 		@queue = [] #queue for trans. queries
 
 	###
-	 Returns true if this stack class is empty
-	 @returns  true if transaction query queue is empty
+	Returns true if this stack class is empty
+	@returns  true if transaction query queue is empty
 	###
 	isEmpty: () =>
 
 		return @queue.length is 0
 
 	###
-	 Flushes transaction buffers
+	Flushes transaction buffers
 	###
 	flush: () =>
 		@stack.length = 0
 		@queue.length = 0
 
 	###
-	 Pushes given query object into transaction buffers
-	 @requires x - queryObject
+	Pushes given query object into transaction buffers
+	@requires x - queryObject
 	###
 	push: (x) =>
 		query = x.query.split " "
@@ -71,7 +71,7 @@ class TransactionStack
 				@queue.push x
 
 	###
-	 Prints content of both transaction buffers
+	Prints content of both transaction buffers
 	###
 	print: () =>
 		console.log "[STACK]"

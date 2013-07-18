@@ -1,9 +1,10 @@
 NATIVE = 1
-pg = if NATIVE then require("#{__dirname}/index.coffee").native else pg = require "#{__dirname}/index.coffee"
+pg = if NATIVE then require("./index").native else pg = require "./index"
 
 
-connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test"
-connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public"
+#connectionStr = "pg://postgres:123456@127.0.0.1:5432/myapp_test"
+connectionStr = "pg://postgres@127.0.0.1/myapp_test"
+connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public&poolSize=1"
 
 db = pg connectionStr+connectionOpts
 
@@ -87,7 +88,9 @@ foo = () ->
 	#in the end
 	db.commit () ->
 		console.log "transaction commited"
-		db.end()
+		db.upsert "numbers", number : -1, "_id = $1 OR _id = $2", [70, 80], (err, res) ->
+			console.log err, res
+			db.end()
 
 
 setTimeout fooStart, 1000

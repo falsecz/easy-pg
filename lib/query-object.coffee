@@ -2,17 +2,17 @@ debug = require('debug') 'easy-pg-qo'
 
 
 ###
- Query Object Class
+Query Object Class
 
- Contains all necessary info about requested pg query.
- It can be sent to pgdb by calling "callBy"
+Contains all necessary info about requested pg query.
+It can be sent to pgdb by calling "callBy"
 ###
 class QueryObject
 
 	###
-	 Query Object constructor, if query type is unknown
-	 it's set to "QueryAll"
-	 @requires "type", "query", "done" -it's callback
+	Query Object constructor, if query type is unknown
+	it's set to "QueryAll"
+	@requires "type", "query", "done" -it's callback
 	###
 	constructor: (type, query, values, done) ->
 		#(type, query, done)
@@ -30,24 +30,23 @@ class QueryObject
 
 
 	###
-	 Forces this query to be sent to the pgdb
-	 @requires "client" pgdb connection client
+	Forces this query to be sent to the pgdb
+	@requires "client" pgdb connection client
 	###
 	callBy: (client) =>
-
+		debug @toString()
 		queryCall[@type] client, @query, @values, @done
 
 
 	###
-	 Prints this query out in a readable form
-	 @returns  string representation of this query
+	Prints this query out in a readable form
+	@returns  string representation of this query
 	###
 	toString: () =>
-
 		"#{@type}: \"#{@query}\" + [#{@values}]"
 
 	###
-	 Different types of query call
+	Different types of query call
 	###
 	queryCall= {
 		#return response in the original form
@@ -66,7 +65,7 @@ class QueryObject
 		"QueryOne" : (client, query, values, done) ->
 			client.query query, values, (err, result) ->
 				result = result?.rows?[0]
-				result ?= null
+				result?= null
 				return done err, result
 	}
 
