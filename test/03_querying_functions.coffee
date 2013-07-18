@@ -37,6 +37,48 @@ describe "Querying functions", ->
 				return done err if err?
 				return done() if (parseInt res.count, 10) is INSERT_COUNT
 
+
+	describe "delete", ->
+		it "returns result on right query", (done) ->
+			db.insert "numbers", number: 0
+			db.insert "numbers", number: 1
+			db.insert "numbers", number: 2
+
+			db.delete "numbers", "number = $1", [0], (err, res)->
+				return done err if err?
+			db.delete "numbers", "number = 1", (err, res)->
+				return done err if err?
+
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
+				return done err if err?
+				return done new Error "test entry deletion failed" if (parseInt res.count, 10) isnt 1
+
+			db.delete "numbers", (err, res)->
+				return done err if err?
+			
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
+				return done err if err?
+				return done() if (parseInt res.count, 10) is 0
+
+		it "returns error on wrong query", (done) ->
+			db.delete "table", (err, res) ->
+				return done() if err?
+
+		it "successful sequence of 100 fast queries", (done) ->
+			INSERT_COUNT = 100
+
+			for i in [0...INSERT_COUNT]
+				db.insert "numbers", number: i #ignore error
+
+			for j in [0...INSERT_COUNT]
+				db.delete "numbers", "number = $1", [j] #ignore error
+
+			#get number of inserts
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore error
+				return done err if err?
+				return done() if (parseInt res.count, 10) is 0
+
+
 	describe "update", ->
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 99

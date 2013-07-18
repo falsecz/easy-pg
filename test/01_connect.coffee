@@ -38,6 +38,7 @@ describe "Immediate initialization", ->
 			"queryAll"
 			"queryOne"
 			"insert"
+			"delete"
 			"update"
 			"upsert"
 			"paginate"

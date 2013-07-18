@@ -1,6 +1,5 @@
-debug = require("debug") "easy-pg"
+debug = require("debug") "easy-pg-db"
 url = require "url"
-pg = require "pg"
 
 {EventEmitter} = require "events"
 {QueryObject} = require "./query-object"
@@ -45,7 +44,8 @@ class Db extends EventEmitter
 	opts.lazy = false makes db connection star immediately
 	@requires "conn" - connection string or object { user, pswd, host, port, db, opts{} }
 	###
-	constructor: (conn) ->
+	constructor: (conn, pg) ->
+		@pg = pg
 		@queue = [] #create client's queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
 		@transaction = new TransactionStack()
@@ -119,6 +119,19 @@ class Db extends EventEmitter
 
 		query = "INSERT INTO #{table} (#{parsed.keys.join ', '}) VALUES (#{parsed.valueIDs.join ', '}) RETURNING *"
 		@queryOne query, parsed.values, done
+
+
+	###
+	Deletes data from specified "table"
+	@requires "table", "where"
+	###
+	delete: (table, where, values, done) =>
+		if typeof where is "function"
+			done = where
+			query = "DELETE FROM #{table} RETURNING *"
+		else
+			query = "DELETE FROM #{table} WHERE #{where} RETURNING *"
+		@queryAll query, values, done
 
 
 	###
@@ -321,7 +334,7 @@ class Db extends EventEmitter
 	###
 	_tryToConnect: () =>
 		@state = "connecting"
-		@client = new pg.Client @connectionString
+		@client = new @pg.Client @connectionString
 		@client.connect (err) =>
 			if err #register request for later connection
 				@reconnectTimer = setTimeout @_tryToConnect, 2000

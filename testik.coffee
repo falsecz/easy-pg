@@ -1,4 +1,4 @@
-NATIVE = 1
+NATIVE = 0
 pg = if NATIVE then require("./index").native else pg = require "./index"
 
 
@@ -90,6 +90,9 @@ foo = () ->
 		console.log "transaction commited"
 		db.upsert "numbers", number : -1, "_id = $1 OR _id = $2", [70, 80], (err, res) ->
 			console.log err, res
+			db.delete "numbers", "_id = $1 OR _id = $2", [70, 80], (err, res)->
+				console.log err
+				console.log res
 			db.end()
 
 
