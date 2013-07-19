@@ -1,14 +1,6 @@
 debug = require('debug') 'easy-pg-ts'
 
 ###
-Appends function startsWith(string) to String
-###
-if (typeof String::startsWith != 'function')
-	String::startsWith = (str) ->
-		return this.slice(0, str.length) == str
-
-
-###
 Simple stack for correct transaction history handling
 ###
 class TransactionStack
