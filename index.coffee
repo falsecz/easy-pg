@@ -1,6 +1,6 @@
-debug	= require("debug") "easy-pg"
-pg		= require "pg"
-{Db}	= require "./lib/db"
+debug = require("debug") "easy-pg"
+pg = require "pg"
+{Db} = require "./lib/db"
 
 
 ### ------- Export ------- ###
