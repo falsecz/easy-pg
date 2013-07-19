@@ -1,9 +1,9 @@
-debug = require("debug") "easy-pg-db"
-url = require "url"
+debug	= require("debug") "easy-pg-db"
+url		= require "url"
 
-{EventEmitter} = require "events"
-{QueryObject} = require "./query-object"
-{TransactionStack} = require "./transaction-stack"
+{EventEmitter}		= require "events"
+{QueryObject}		= require "./query-object"
+{TransactionStack}	= require "./transaction-stack"
 
 ###
 Deferred Postgresql Client Class
@@ -20,20 +20,23 @@ class Db extends EventEmitter
 	# connection parameters required by this client
 	requiredConnParams = [
 		"protocol"
-		"user",
-		#"password", not required
-		"host",
-		#"port", not required
+		#"user"		not required
+		#"password" not required
+		"host"
+		#"port"		not required
 		"db"
 	]
 	
-	#handling for individual options
+	#handling for individual conn.options
 	optsHandler =
+		#conn.options.lazy
 		lazy: (client, val) ->
 			client._tryToConnect() if val is "no" or val is "false"
+		#conn.options.datestyle
 		datestyle: (client, val) ->
 			client._optsPush "QueryRaw", "SET DATESTYLE = #{val}", (err, res) ->
 				return client._handleError err if err?
+		#conn.options.searchPath
 		searchPath: (client, val) ->
 			client._optsPush "QueryRaw", "SET SEARCH_PATH = #{val}", (err, res) ->
 				return client._handleError err if err?
@@ -42,13 +45,15 @@ class Db extends EventEmitter
 	###
 	Constructor of deferred postgresql client
 	opts.lazy = false makes db connection star immediately
-	@requires "conn" - connection string or object { user, pswd, host, port, db, opts{} }
+	@requires 	"conn" - connection string or object { user,
+				password, host, port, db, options{} }
+				"pg" - pure JavaScript or native libpq binding
 	###
 	constructor: (conn, pg) ->
 		@pg = pg
-		@queue = [] #create client's queue for queries
+		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
-		@transaction = new TransactionStack()
+		@transaction = new TransactionStack() #stack for transactions
 
 		# parse connection string if needed
 		conn = @_parseConn conn if typeof conn is "string"
@@ -63,13 +68,14 @@ class Db extends EventEmitter
 		#create connection string for pg
 		pswd = if conn.password? then ":#{conn.password}" else ""
 		port = if conn.port? then ":#{conn.port}" else ""
-		cStr  = "#{conn.protocol}//#{conn.user}#{pswd}@#{conn.host}#{port}/#{conn.db}"
+		user = if conn.user? then "#{conn.user}#{pswd}@" else ""
+		cStr  = "#{conn.protocol}//#{user}#{conn.host}#{port}/#{conn.db}"
 
 		#append options from opts
-		if Object.keys(conn.options).length #keyCount
+		if Object.keys(conn.options).length #key count
 			cStr += "?"
 			cStr += "#{key}=#{val}&" for key, val of conn.options
-			cStr = cStr.substring 0, cStr.length-1 #remove last "&"
+			cStr.length = cStr.substring 0, cStr.length-1 #remove last "&"
 		else delete conn.options if conn.options?
 
 		@connectionString = cStr #set client's connection string
@@ -78,9 +84,12 @@ class Db extends EventEmitter
 		# there's nothing more to do if options does not exist
 		return unless conn.options?
 
-		# set all options
+		# set all options except lazy because lazy may
+		# force connection before all options are set
 		for option, value of conn.options
-			optsHandler[option](@, value) if optsHandler[option]?
+			optsHandler[option](@, value) if optsHandler[option]? and option isnt "lazy"
+
+		optsHandler["lazy"](@, conn.options.lazy) if optsHandler.lazy?
 
 
 	###
@@ -112,10 +121,10 @@ class Db extends EventEmitter
 
 	###
 	Inserts "data" into specified "table"
-	@requires "table", "data"
+	@requires "table", "data" -object or array of objects
 	###
 	insert: (table, data, done) =>
-		parsed = @_parseData data # parse data info arrays
+		parsed = @_parseData data # parse data into arrays
 
 		query = "INSERT INTO #{table} (#{parsed.keys.join ', '}) VALUES (#{parsed.valueIDs.join ', '}) RETURNING *"
 		@queryOne query, parsed.values, done
@@ -123,7 +132,7 @@ class Db extends EventEmitter
 
 	###
 	Deletes data from specified "table"
-	@requires "table", "where"
+	@requires "table"
 	###
 	delete: (table, where, values, done) =>
 		if typeof where is "function"

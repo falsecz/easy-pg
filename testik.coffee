@@ -1,9 +1,9 @@
-NATIVE = 0
+NATIVE = 1
 pg = if NATIVE then require("./index").native else pg = require "./index"
 
 
 #connectionStr = "pg://postgres:123456@127.0.0.1:5432/myapp_test"
-connectionStr = "pg://postgres@127.0.0.1/myapp_test"
+connectionStr = "pg://postgres@localhost/myapp_test"
 connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public&poolSize=1"
 
 db = pg connectionStr+connectionOpts
