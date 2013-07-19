@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/falsecz/easy-pg.png?branch=master)](https://travis-ci.org/falsecz/easy-pg)
 [![Dependency Status](https://david-dm.org/falsecz/easy-pg.png)](https://david-dm.org/falsecz/easy-pg)
 
-easy-pg is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected minor errors such as temporary loss of connection. Easy-PG stacks queries during transactions as well to revive them in the case of interrupted connection.
+easy-pg is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected minor errors such as temporary loss of connection. Easy-pg stacks queries during transactions as well to revive them in the case of interrupted connection.
 
 ##Installation
 
@@ -38,7 +38,7 @@ Previous code results in:
     Client is disconnected
 
 ###Connection Parameters & Options
-You can pass connection string or object into Easy-PG constructor with connection options. These options are processed by client (if known) and transparently forwarded to postgres instance later.
+You can pass connection string or object into easy-pg constructor with connection options. These options are processed by client (if known) and transparently forwarded to postgres instance later.
 
 ```coffeescript
 epg = require "easy-pg"
@@ -78,11 +78,11 @@ Following connection parameters and options can be used:
   * datestyle <i>-instead of (in SQL) commonly used SET DATESTYLE</i>
   * searchPath <i>-instead of (in SQL) commonly used SET SEARCH_PATH</i>
 
-Full connection string may look like this: <i>"pg://postgres:123456@localhost:5432/myapp_test?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"</i>, where "poolSize" is not handled by Easy-PG, but postgres instance. Connection options are checked and applied every time the client is (re)connected, thus once you for example set datestyle, it is kept set until the client is disconnected and destroyed. Even if the connection is temporarily lost.
+Full connection string may look like this: <i>"pg://postgres:123456@localhost:5432/myapp_test?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"</i>, where "poolSize" is not handled by easy-pg, but postgres instance. Connection options are checked and applied every time the client is (re)connected, thus once you for example set datestyle, it is kept set until the client is disconnected and destroyed. Even if the connection is temporarily lost.
 
 ###Client Events
 
-There are 3 events emitted by Easy-PG client:
+There are 3 events emitted by easy-pg client:
 
 * ready
 * end
