@@ -1,7 +1,7 @@
-#Easy-PG
+#easy-pg
 [![Build Status](https://travis-ci.org/falsecz/easy-pg.png?branch=master)](https://travis-ci.org/falsecz/easy-pg)
 
-Easy-PG is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected minor errors such as temporary loss of connection. Easy-PG stacks queries during transactions as well to revive them in the case of interrupted connection.
+easy-pg is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected minor errors such as temporary loss of connection. Easy-PG stacks queries during transactions as well to revive them in the case of interrupted connection.
 
 ##Installation
 
