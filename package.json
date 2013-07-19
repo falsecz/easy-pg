@@ -3,7 +3,7 @@
   "version": "0.0.2",
   "scripts": {
     "test": "make test-js; make test-native",
-    "lint": "coffeelint --f coffeelint.json *.coffee lib/* "
+    "lint": "coffeelint --f coffeelint.json *.coffee lib/* test/*"
   },
   "repository": {
     "type": "git",

@@ -9,7 +9,7 @@ describe "Querying functions", ->
 	@timeout 10000 # 10sec
 	db = pg connectionStr
 	db.on 'error', (err) ->
-			console.log err
+		console.log err
 
 	beforeEach ->
 		#clear db-table numbers
@@ -59,7 +59,7 @@ describe "Querying functions", ->
 
 			db.delete "numbers", (err, res)->
 				return done err if err?
-			
+
 			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 				return done err if err?
 				return done() if (parseInt res.count, 10) is 0

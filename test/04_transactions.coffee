@@ -9,7 +9,7 @@ describe "Transactions", ->
 	@timeout 10000 # 10sec
 	db = pg connectionStr
 	db.on 'error', (err) ->
-			return done err if err?
+		return done err if err?
 
 	beforeEach ->
 		#clear db-table numbers
