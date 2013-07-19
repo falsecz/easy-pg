@@ -10,7 +10,7 @@
     "url": "https://github.com/falsecz/easy-pg.git"
   },
   "author": "",
-  "description": "",
+  "description": "easy-pg is \"easy to use\" deferred PostgreSQL client for node.js",
   "keywords": [
     "postgres",
     "postgres",
