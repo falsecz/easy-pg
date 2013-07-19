@@ -1,7 +1,7 @@
 #Easy-PG
 [![Build Status](https://travis-ci.org/falsecz/easy-pg.png?branch=master)](https://travis-ci.org/falsecz/easy-pg)
 
-Easy-PG is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected minor errors such as temporary loss of connection. Easy-pg stacks queries during transactions as well to revive them in the case of interrupted connection.
+Easy-PG is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected minor errors such as temporary loss of connection. Easy-PG stacks queries during transactions as well to revive them in the case of interrupted connection.
 
 ##Installation
 
@@ -63,7 +63,7 @@ client = epg conString
 client = epg conObject
 ```
 
-You can use following connection parameters and options:
+Following connection parameters and options can be used:
 
 * Connection parameters
   * protocol <i>(required)</i>
@@ -105,4 +105,4 @@ client.on "error", (err) ->
 # error event can be emitted here
 ```
 
-Error event is emitted just in the case of fatal error (syntax error, etc.). For example, if postgres server is restarted while processing query and the query fails, client reconnects itself and tries to process this query again without emitting or throwing error.
+Error event is emitted just in the case of fatal error (syntax error, etc.). For example, if postgres server is restarted while processing query and the query fails, client reconnects itself and tries to process this query again without emitting or throwing any error.
