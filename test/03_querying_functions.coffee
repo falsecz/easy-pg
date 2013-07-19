@@ -33,9 +33,13 @@ describe "Querying functions", ->
 				db.insert "numbers", number: i #ignore error
 
 			#get number of inserts
-			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore error
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 				return done err if err?
 				return done() if (parseInt res.count, 10) is INSERT_COUNT
+		it "multiple rows by one query", (done) ->
+			db.insert "numbers", [{number: 1}, {number: 2}, {number: 3}], (err, res) ->
+				return done err if err?
+				return done() if res.length is 3
 
 
 	describe "delete", ->

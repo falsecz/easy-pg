@@ -2,24 +2,27 @@ pg = if process.env.NATIVE then require("../").native else require "../"
 
 connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test"
 connection =
+	protocol: "pg"
 	user: "postgres"
-	#pswd: "123456" - not required
+	#pswd: "123456"
 	host: "127.0.0.1"
 	port: "5432"
 	db:   "TestDB"
 
-incompleteConnectionStr = "pg://postgres/myapp_test"
+incompleteConnectionStr = "pg://myapp_test"
 incompleteConnection =
-	user: "postgres"
-	#pswd: "123456" - not required
+	protocol: "pg"
+	#user: "postgres"
+	#pswd: "123456"
 	#host: "127.0.0.1"
 	#port: "5432"
 	db:   "TestDB"
 
 wrongConnectionStr = "pg://postgres@127.0.0.1:5432/unknown_database"
 wrongConnection =
+	protocol: "pg"
 	user: "postgres"
-	#pswd: "123456" - not required
+	#pswd: "123456"
 	host: "127.0.0.1"
 	port: "5432"
 	db:   "unknown_database"

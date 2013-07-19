@@ -67,15 +67,15 @@ class Db extends EventEmitter
 
 		#create connection string for pg
 		pswd = if conn.password? then ":#{conn.password}" else ""
-		port = if conn.port? then ":#{conn.port}" else ""
 		user = if conn.user? then "#{conn.user}#{pswd}@" else ""
+		port = if conn.port? then ":#{conn.port}" else ""
 		cStr  = "#{conn.protocol}//#{user}#{conn.host}#{port}/#{conn.db}"
 
 		#append options from opts
 		if Object.keys(conn.options).length #key count
 			cStr += "?"
 			cStr += "#{key}=#{val}&" for key, val of conn.options
-			cStr.length = cStr.substring 0, cStr.length-1 #remove last "&"
+			cStr = cStr.substring 0, cStr.length-1 #remove last "&"
 		else delete conn.options if conn.options?
 
 		@connectionString = cStr #set client's connection string
@@ -126,9 +126,22 @@ class Db extends EventEmitter
 	insert: (table, data, done) =>
 		parsed = @_parseData data # parse data into arrays
 
-		query = "INSERT INTO #{table} (#{parsed.keys.join ', '}) VALUES (#{parsed.valueIDs.join ', '}) RETURNING *"
-		@queryOne query, parsed.values, done
+		if Array.isArray parsed
+			keys = parsed[0].keys.join ", "
+			values = []
+			values.push obj.values... for obj in parsed
+			valIds = []
+			valIds.push "(#{obj.valueIDs.join ', '})"for obj in parsed
+			valueIDs = valIds.join ", "
+		else
+			keys = parsed.keys.join ", "
+			values = parsed.values
+			valueIDs = " (#{parsed.valueIDs.join ', '})"
 
+		query = "INSERT INTO #{table} (#{keys}) VALUES #{valueIDs} RETURNING *"
+		
+		return @queryAll query, values, done if Array.isArray parsed
+		return @queryOne query, values, done
 
 	###
 	Deletes data from specified "table"
@@ -225,8 +238,7 @@ class Db extends EventEmitter
 		limit = parseInt limit
 
 		# separate query and its ORDER BY
-		index = query.lastIndexOf "ORDER BY"
-		index = query.lastIndexOf "order by" if index < 0
+		index = query.toLowerCase().lastIndexOf "order by"
 		orderBy = "ORDER BY #{cols}"
 
 		if index > 0
@@ -506,24 +518,34 @@ class Db extends EventEmitter
 	###
 	Parses given data object to get format of this data
 	useful for client's query functions
-	@requires "data" object
-	@returns  { "keys", "values", "valueIDs", "sets" }
+	@requires	"data" object
+	@returns	{ "keys", "values", "valueIDs", "sets" } or array
+				of objects like this one
 	###
 	_parseData: (data) ->
-		keys = []		# array of keys
-		values = []		# array of values
-		valueIDs = []	# array of "$id"
-		sets = []		# array of "key = $id"
+		unless Array.isArray data # inserting multiple rows
+			data = [data]
+
+		result = []
 		i = 1
 
-		for key, val of data
-			keys.push key
-			values.push val
-			valueIDs.push "$#{i}"
-			sets.push "#{key} = $#{i}"
-			i++
+		for obj in data
+			keys = []		# array of keys
+			values = []		# array of values
+			valueIDs = []	# array of "$id"
+			sets = []		# array of "key = $id"
 
-		return { keys, values, valueIDs, sets }
+			for key, val of obj
+				keys.push key
+				values.push val
+				valueIDs.push "$#{i}"
+				sets.push "#{key} = $#{i}"
+				i++
+
+			result.push { keys, values, valueIDs, sets }
+
+		return result[0] if result.length is 1
+		return result
 
 
 	###
@@ -539,6 +561,9 @@ class Db extends EventEmitter
 				@_tryToConnect()
 		else # report error
 			if @listeners("error").length then @emit "error", err else throw err
+
+
+
 
 
 ### ------- Export ------- ###

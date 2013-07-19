@@ -72,6 +72,10 @@ fooStart = () ->
 	db.query "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);", (err, res) ->
 		console.log "CREATE TABLE query fail ...", err if err
 
+	db.insert "numbers", [{number: 1001}, {number: 1002}, {number: 1003}], (err, res)->
+		console.log err if err?
+		console.log res
+
 	db.begin () ->
 		console.log "transaction begin"
 	
