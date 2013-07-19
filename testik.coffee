@@ -1,13 +1,39 @@
-NATIVE = 1
-pg = if NATIVE then require("./index").native else pg = require "./index"
+epg = require "./index"
+
+conObject =
+	protocol:	"pg:"
+	user:		"postgres"
+	host:		"localhost"
+	db:			"myapp_test"
+	options:	{
+		opt1:"x"
+		opt2:"y"
+		opt3:"z"
+	}
+
+client = epg conObject
+
+client.on "ready", () -> console.log "Client is connected"
+
+client.on "end", () -> console.log "Client is disconnected"
+
+# not connected so far, it's deferred client!
+# client creates connection right with the first query
+
+#insert number into specified table and disconnect
+client.insert "numbers", {number: 1}, (err, res) ->
+	console.log err if err?
+	console.log res if res?
+	client.end()
+
 
 
 #connectionStr = "pg://postgres:123456@127.0.0.1:5432/myapp_test"
-connectionStr = "pg://postgres@localhost/myapp_test"
-connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public&poolSize=1"
+#connectionStr = "pg://postgres@localhost/myapp_test"
+#connectionOpts = "?lazy=yes&datestyle=iso, mdy&searchPath=public&poolSize=1"
 
-db = pg connectionStr+connectionOpts
-
+#db = pg connectionStr+connectionOpts
+###
 db.on "error", (err) ->
 	console.log "err: ",err
 
@@ -18,44 +44,10 @@ db.on "end", (err) ->
 	console.log "Client is over"
 
 
-getAllNames = () ->
-	db.queryAll 'SELECT * FROM names', (err, res) ->
-		console.log "query fail ...", err if err
-		console.log "getAllNames"
-		console.log res
-
-getFirstOfAllNames = () ->
-	db.queryOne 'SELECT * FROM names', (err, res) ->
-		console.log "query fail ...", err if err
-		console.log "getFirstOfAllNames"
-		console.log res
-
-getName = (name) ->
-	db.queryAll 'SELECT * FROM names WHERE firstname = $1', [name], (err, res) ->
-		console.log "query fail ...", err if err
-		console.log "getName(#{name})"
-		console.log res
-
-getNameRaw = (name) ->
-	db.query 'SELECT * FROM names WHERE firstname = $1', [name], (err, res) ->
-		console.log "query fail ...", err if err
-		console.log "getNameRaw(#{name})"
-		console.log res.rows
-
 insertNum = (num) ->
 	db.insert "numbers", number: num,(err, res) ->
 		console.log "query fail ...", err if err
 		console.log "inserted num #{num}"
-
-
-insertName = (first, last) ->
-	db.insert "names", {firstname: first, lastname: last},(err, res) ->
-		console.log "query fail ...", err if err
-		console.log "insertName(#{first}, #{last})"
-		console.log res
-
-
-console.log "db state: ", db.state
 
 
 # test INSERT
@@ -99,5 +91,5 @@ foo = () ->
 				console.log res
 			db.end()
 
-
-setTimeout fooStart, 1000
+###
+#setTimeout fooStart, 1000
