@@ -6,7 +6,8 @@ pg		= require "pg"
 ### ------- Export ------- ###
 
 module.exports = (conn) ->
-	#debug "pg.native used: ", (not pg.native?)
+	#detect if pg is native, native doesn't have "native" getter
+	debug "pg.native used: ", (not pg.hasOwnProperty "native")
 	return new Db conn, pg
 
 module.exports.__defineGetter__ "native", ->
