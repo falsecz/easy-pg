@@ -33,7 +33,7 @@ class TransactionStack
 	@requires x - queryObject
 	###
 	push: (x) =>
-		query = x.query.split " "
+		query = x.query.toUpperCase().trim().split " ", 2
 		cmd = query[0]
 		name = ""
 

@@ -143,6 +143,7 @@ class Db extends EventEmitter
 		return @queryAll query, values, done if Array.isArray parsed
 		return @queryOne query, values, done
 
+
 	###
 	Deletes data from specified "table"
 	@requires "table"
@@ -165,23 +166,23 @@ class Db extends EventEmitter
 			done = whereData
 			whereData = []
 
-		parsed = @_parseData data # parse "data" info arrays
+		parsed = @_parseData data # parse "data" into arrays
 
 		# parse data from "whereData" and match it in "where"
 		i = parsed.values.length
 		where = where.replace /\$(\d+)/g, (match, id) ->
-			"$" + (i - 1 + parseInt(id))
+			"$" + (i + parseInt(id))
 
 		for val in whereData
 			parsed.values.push val
-
+		
 		query = "UPDATE #{table} SET #{parsed.sets.join ', '} WHERE #{where} RETURNING *"
 		@queryOne query, parsed.values, done
 
 
 	###
 	Updates (inserts) data in the specified "table"
-	@requires "table", "data", "where", "whereData"
+	@requires "table", "data", "where"
 	@note     requires Postgresql version 8.4, 9.0 or
 	          higher to support "WITH" query statement
 	###
@@ -433,7 +434,8 @@ class Db extends EventEmitter
 			@kill() if @wantToEnd
 
 			#switch transaction state with successful begin
-			@_transStart() if query is "BEGIN" and @transaction.isEmpty() and not err?
+			keyWord = query.toUpperCase().trim().split(" ", 1)[0]
+			@_transStart() if keyWord is "BEGIN" and @transaction.isEmpty() and not err?
 
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
@@ -460,6 +462,7 @@ class Db extends EventEmitter
 		
 		@queue.push qObj #register another query
 		@_queuePull() if @queue.length is 1 #process first query in the queue
+
 
 	###
 	Pushes given input into options queue for later dispatching
@@ -561,9 +564,6 @@ class Db extends EventEmitter
 				@_tryToConnect()
 		else # report error
 			if @listeners("error").length then @emit "error", err else throw err
-
-
-
 
 
 ### ------- Export ------- ###

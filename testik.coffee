@@ -24,9 +24,17 @@ client.on "end", () -> console.log "Client is disconnected"
 client.insert "numbers", {number: 1}, (err, res) ->
 	console.log err if err?
 	console.log res if res?
+	
+
+client.query "select * from numbers", (err, res)->
+	console.log res
+
+client.queryOne "select * from numbers", (err, res)->
+	console.log res
+
+client.queryAll "select * from numbers", (err, res)->
+	console.log res
 	client.end()
-
-
 
 #connectionStr = "pg://postgres:123456@127.0.0.1:5432/myapp_test"
 #connectionStr = "pg://postgres@localhost/myapp_test"

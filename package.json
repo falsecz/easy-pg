@@ -1,6 +1,6 @@
 {
   "name": "easy-pg",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "scripts": {
     "test": "make test-js; make test-native",
     "lint": "coffeelint --f coffeelint.json *.coffee lib/* test/*"
@@ -13,12 +13,12 @@
   "description": "easy-pg is \"easy to use\" deferred PostgreSQL client for node.js",
   "keywords": [
     "postgres",
-    "postgres",
+    "postgre",
     "pg",
     "libpq",
-    "postgre",
     "database",
-    "deffered"
+    "deferred",
+    "client"
   ],
   "license": "BSD",
   "devDependencies": {

@@ -86,7 +86,7 @@ describe "Querying functions", ->
 	describe "update", ->
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 99
-			db.update "numbers", number: 0, "number = 99", (err, res) ->
+			db.update "numbers", number: 0, "number = $1", [99], (err, res) ->
 				return done err if err?
 				return done() if (res? and res.number is 0)
 
