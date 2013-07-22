@@ -241,7 +241,7 @@ client.rollback "my_savepoint" # rolls back to "my_savepoint"
 client.rollback "my_savepoint", (err, res) -> # do sth. in callback...
 ```
 
-Stacks are used to allows the client proper handling of nested transactions!
+Stacks are used to allow the client proper handling of nested transactions!
 
     COMMANDS   STACK
     begin      B
