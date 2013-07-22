@@ -152,14 +152,17 @@ client = epg "pg://postgres@localhost/myapp_test"
 
 client.query "SET DATESTYLE = iso"
 client.query "SELECT * FROM table", (err, res) -> # do sth. in callback...
+client.query "SELECT $1 FROM $2", ["*", "table"] # bind some parameters...
 client.query "SELECT $1 FROM $2", ["*", "table"], (err, res) -> # do sth. in callback...
 
 client.queryAll "SET DATESTYLE = iso"
 client.queryAll "SELECT * FROM table", (err, res) -> # do sth. in callback...
+client.queryAll "SELECT $1 FROM $2", ["*", "table"] # bind some parameters...
 client.queryAll "SELECT $1 FROM $2", ["*", "table"], (err, res) -> # do sth. in callback...
 
 client.queryOne "SET DATESTYLE = iso"
 client.queryOne "SELECT * FROM table", (err, res) -> # do sth. in callback...
+client.queryOne "SELECT $1 FROM $2", ["*", "table"] # bind some parameters...
 client.queryOne "SELECT $1 FROM $2", ["*", "table"], (err, res) -> # do sth. in callback...
 ```
 
@@ -176,29 +179,35 @@ client = epg "pg://postgres@localhost/myapp_test"
 
 # table, value
 client.insert "numbers", {number: 0} # insert one row
-client.insert "numbers", [{number: 1}, {number: 2}, {number: 3}] # insert 3 rows
 client.insert "numbers", {number: 4}, (err, res) -> # do sth. in callback...
+client.insert "numbers", [{number: 1}, {number: 2}, {number: 3}] # insert 3 rows
+client.insert "numbers", [{number: 1}, {number: 2}, {number: 3}], (err, res) -> # do sth. in callback...
 
 # table, value, where
 client.update "numbers", {number: 99}, "number = 0" # replaces number 0 by 99
+client.update "numbers", {number: 99}, "number = 0", (err, res) -> # do sth. in callback...
 client.update "numbers", {number: 99}, "number = $1", [1] # replaces number 1 by 99
-client.update "numbers", {number: 0}, "number = 99", (err, res) -> # do sth. in callback...
+client.update "numbers", {number: 99}, "number = $1", [1], (err, res) -> # do sth. in callback...
 
 # table, value, where
 client.upsert "numbers", {number: 9}, "number = 9" # inserts number 9
+client.upsert "numbers", {number: 9}, "number = 9", (err, res) -> # do sth. in callback...
 client.upsert "numbers", {number: 9}, "number = $1", [9] # replaces number 9 by 9
-client.upsert "numbers", {number: 1}, "number = 1", (err, res) -> # do sth. in callback...
+client.upsert "numbers", {number: 9}, "number = $1", [9], (err, res) -> # do sth. in callback...
 
 # table
 client.delete "numbers" # deletes table "numbers"
+client.delete "numbers", (err, res) -> # do sth. in callback...
 client.delete "numbers", "number = 0" # deletes rows with 0
+client.delete "numbers", "number = 0", (err, res) -> # do sth. in callback...
 client.delete "numbers", "number = $1", [1] # deletes rows with 1
-client.delete "numbers", "number = 2", (err, res) -> # do sth. in callback...
+client.delete "numbers", "number = $1", [1], (err, res) -> # do sth. in callback...
 
 # offset, limit, columns, query
-client.paginate 0, 10, "_id, number", "SELECT * FROM numbers" # lists first 10 rows of the given query
+client.paginate 0, 10, "number", "SELECT * FROM numbers" # lists first 10 rows of the given query
+client.paginate 0, 10, "number", "SELECT * FROM numbers", (err, res) -> # do sth. in callback...
 client.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9] # the same with ids > 9
-client.paginate 0, 10, "_id, number", "SELECT * FROM numbers", (err, res) -> # do sth. in callback...
+client.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9], (err, res) -> # do sth. in callback...
 ```
 
 ###Transactions
@@ -210,7 +219,7 @@ Transactions are also carefully handled by easy-pg. Once the transaction is star
 * <b>commit</b>
 * <b>rollback</b>
 
-See the source code below to understand the use of these functions. 
+See the source code below to understand the use of these functions.
 
 ```coffeescript
 epg = require "easy-pg"
@@ -227,13 +236,27 @@ client.commit() # commits changes in db
 client.commit (err, res) -> # do sth. in callback...
 
 client.rollback() # rolls back to closest begin
-client.rollback "my_savepoint" # rolls back to "my_savepoint"
 client.rollback (err, res) -> # do sth. in callback...
+client.rollback "my_savepoint" # rolls back to "my_savepoint"
+client.rollback "my_savepoint", (err, res) -> # do sth. in callback...
 ```
+
+Stacks are used to allows the client proper handling of nested transactions!
+
+    COMMANDS   STACK
+    begin      B
+    query      QB
+    begin      BQB
+    query      QBQB
+    query      QQBQB
+    commit     QB
+    query      QQB
+    commit   
+
 
 ###Acceptable Errors
 
-Minor errors were mentioned in the text above. All messages sent by PostgreSQL server contain error codes to inform us about the state of the database. Most of these codes are not handled, just forwarded through callback-err, except of 3 error code classes:
+Minor errors were mentioned in the text above. All messages sent by PostgreSQL server contain error codes to inform client about the state of the database. Most of these codes are not handled, just forwarded through callback-err, except of 3 error code classes:
 
 * <b>00</b> Successful Completion
 * <b>08</b> Connection Exception
