@@ -51,9 +51,13 @@ class TransactionStack
 				@stack.unshift {type: "S", pos: @queue.length}
 				@queue.push x
 
-			when "COMMIT", "ROLLBACK" # pop until reach B
+			when "COMMIT" # pop until reach B
+				@stack.shift() while (removed?.type isnt "B" and @stack.length)
+				@queue.push x
+
+			when "ROLLBACK" # pop until reach B
 				removed = @stack.shift() while (removed?.type isnt "B" and @stack.length)
-				@queue.splice removed.pos #remove all commited queries from queue
+				@queue.splice removed.pos #remove all rolled back queries from queue
 
 			when "ROLLBACKTO" # search required S
 				for i in [0...@stack.length]

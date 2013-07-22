@@ -241,18 +241,23 @@ client.rollback "my_savepoint" # rolls back to "my_savepoint"
 client.rollback "my_savepoint", (err, res) -> # do sth. in callback...
 ```
 
-Stacks are used to allow the client proper handling of nested transactions!
+Stacks are used to allow the client proper handling of nested transactions! Pseudocode below shows an example of succesfully revived transaction.
 
     COMMANDS   STACK
-    begin      B
-    query      QB
-    begin      BQB
-    query      QBQB
-    query      QQBQB
-    commit     QB
-    query      QQB
-    commit   
 
+    begin      B
+    query1     QB
+    begin      BQB
+    query2     QBQB
+    query3     QQBQB
+    rollback   QB
+    query4     QQB <-- connection err
+    commit
+    ---- restart ----
+    begin      B
+    query1     QB
+    query4     QQB
+    commit
 
 ###Acceptable Errors
 
