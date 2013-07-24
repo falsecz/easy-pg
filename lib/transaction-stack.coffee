@@ -15,11 +15,11 @@ class TransactionStack
 
 	###
 	Returns true if this stack class is empty
-	@returns  true if transaction query queue is empty
+	@returns  true if transaction query stack is empty
 	###
 	isEmpty: () =>
 
-		return @queue.length is 0
+		return @stack.length is 0
 
 	###
 	Flushes transaction buffers
@@ -54,6 +54,7 @@ class TransactionStack
 			when "COMMIT" # pop until reach B
 				@stack.shift() while (removed?.type isnt "B" and @stack.length)
 				@queue.push x
+				@flush() if @isEmpty() #last commit clears query queue
 
 			when "ROLLBACK" # pop until reach B
 				removed = @stack.shift() while (removed?.type isnt "B" and @stack.length)
