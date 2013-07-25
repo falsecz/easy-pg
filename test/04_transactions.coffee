@@ -1,17 +1,20 @@
 pg = if process.env.NATIVE then require("../").native else require "../"
 
-connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test?some_param=whatever"
+connOpts = "?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"
+connectionStr = "pg://postgres@localhost/myapp_test" + connOpts
 
 QUERY_DROP = "DROP TABLE IF EXISTS numbers;"
 QUERY_CREATE = "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);"
 
 describe "Transactions", ->
 	@timeout 10000 # 10sec
-	db = pg connectionStr
-	db.on 'error', (err) ->
-		return done err if err?
+	db = null
 
 	beforeEach ->
+		if db is null
+			db = pg connectionStr
+			db.on 'error', (err) ->
+				console.log err
 		#clear db-table numbers
 		db.query QUERY_DROP   #ignore error
 		db.query QUERY_CREATE #ignore error

@@ -1,4 +1,5 @@
 debug	= require("debug") "easy-pg-db"
+poolDebug	= require("debug") "easy-pg-pool"
 url		= require "url"
 
 {EventEmitter}		= require "events"
@@ -30,14 +31,17 @@ class Db extends EventEmitter
 	#handling for individual conn.options
 	optsHandler =
 		#conn.options.lazy
-		lazy: (client, val) ->
+		lazy: (client, val) =>
 			client._tryToConnect() if val is "no" or val is "false"
+		#conn.options.poolSize
+		poolSize: (client, val) =>
+			@poolSize = val
 		#conn.options.datestyle
-		datestyle: (client, val) ->
+		datestyle: (client, val) =>
 			client._optsPush "QueryRaw", "SET DATESTYLE = #{val}", (err, res) ->
 				return client._handleError err if err?
 		#conn.options.searchPath
-		searchPath: (client, val) ->
+		searchPath: (client, val) =>
 			client._optsPush "QueryRaw", "SET SEARCH_PATH = #{val}", (err, res) ->
 				return client._handleError err if err?
 
@@ -51,6 +55,7 @@ class Db extends EventEmitter
 	###
 	constructor: (conn, pg) ->
 		@pg = pg
+		@poolSize = 10
 		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
 		@transaction = new TransactionStack() #stack for transactions
@@ -327,17 +332,32 @@ class Db extends EventEmitter
 	kill: () =>
 		clearTimeout @reconnectTimer if @reconnectTimer? # to prevent reconnecting after kill
 
-		if @client?
+		if @client? or @client is null
 			@queue.length = 0 # clear, but keeps all references to this queue
 			@transaction.flush()
-			@client.end()
-			@emit "end" if @state isnt "online"
+			#@client.end()
+
+			@_clearAndPoolClient()
+			pool = @pg.pools.all['"' + @connectionString + '"']
+			pool.drain () =>
+				#console.log pool
+				pool.destroyAllNow()
+				delete @pg.pools.all['"' + @connectionString + '"']
+				
+			@emit "end"# if @state isnt "online"
 		
 		clearTimeout @reconnectTimer if @reconnectTimer? # once more, just for sure
 
 		@state = "offline"
 		@inTransaction = no
 		@wantToEnd = no
+
+
+	_clearAndPoolClient: () =>
+		if @client?
+			@client.removeListener "error", @_clientError
+			@client.removeListener "end", @_clientEnd
+		@done() if @done?
 
 
 	###
@@ -356,24 +376,52 @@ class Db extends EventEmitter
 	###
 	_tryToConnect: () =>
 		@state = "connecting"
-		@client = new @pg.Client @connectionString
-		@client.connect (err) =>
+		@client = null
+		@done = null
+
+		@pg.defaults.poolSize = @poolSize
+		@pg.defaults.poolLog = (dta) ->
+			poolDebug dta
+
+		@pg.connect @connectionString, (err, client, done) =>
 			if err #register request for later connection
 				@reconnectTimer = setTimeout @_tryToConnect, 2000
 				return @_handleError err #new Error "connection failed ..."
+
+			@client = client
+
+			@done = () ->
+				done()
 			
-			@client.on "error", (err) => #try to connect again immediately
-				return @_handleError err #new Error "connection lost..."
-				@_tryToConnect()
-			@client.on "end", () =>
-				@emit "end"
+			@client.on "error", @_clientError
+			@client.on "end", @_clientEnd
 
 			@state = "online"
+			
 			# set all opts and callback "ready" and _queuePull
-			@queue = @optsQueue.concat @queue
+			if @optsQueue.length > 0 and @queue.length > 0
+				trans = []
+				trans.push @_createQueryObject "QueryRaw", "BEGIN"
+				trans = trans.concat @optsQueue
+
+				shifted = @queue.shift()
+				keyWord = shifted.query.toUpperCase().trim().split(" ", 1)[0]
+				if keyWord isnt "BEGIN"
+					trans.push shifted if keyWord isnt "COMMIT"
+					trans.push @_createQueryObject "QueryRaw", "COMMIT"
+				
+				# create transaction: BEGIN, all options, first query, COMMIT
+				@queue = trans.concat @queue
+
 			@emit "ready"
 			@_queuePull()   #process first query in the queue immediately
 
+	_clientError: (err) => #try to connect again immediately
+		return @_handleError err #new Error "connection lost..."
+		@_tryToConnect()
+
+	_clientEnd: () =>
+		@emit "end"
 
 	###
 	Returns true if the given postgresql error code
@@ -459,7 +507,6 @@ class Db extends EventEmitter
 	###
 	_queuePush: (type, query, values, done) =>
 		qObj = @_createQueryObject type, query, values, done
-		
 		@queue.push qObj #register another query
 		@_queuePull() if @queue.length is 1 #process first query in the queue
 
@@ -481,6 +528,9 @@ class Db extends EventEmitter
 		removed = @queue.shift() if shiftFirst #shift solved here to make this Pull ALMOST ATOMIC
 		@transaction.push removed if @inTransaction and removed?
 		@_transStop() if @inTransaction and @transaction.isEmpty() #transaction done
+		if not @inTransaction and @done? and removed?
+			@_clearAndPoolClient("DONE: " + removed.query)
+			@state = "offline"
 
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
