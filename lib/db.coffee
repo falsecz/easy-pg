@@ -191,8 +191,10 @@ class Db extends EventEmitter
 	###
 	Updates (inserts) data in the specified "table"
 	@requires "table", "data", "where"
-	@note     requires Postgresql version 8.4, 9.0 or
-	          higher to support "WITH" query statement
+	@note     requires Postgresql version 9.1 or higher
+	          to support "WITH" query statement in
+	          combination with UPDATE/INSERT
+	###
 	###
 	upsert: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
@@ -232,6 +234,56 @@ class Db extends EventEmitter
 			"""
 
 		@queryAll upsQuery, parsed.values, done
+	###
+	upsert: (table, data, where, whereData=[], done) =>
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+
+		parsed = @_parseData data # parse "data" into arrays
+
+		# parse data from "whereData" and match it in "where"
+		i = parsed.values.length
+		where = where.replace /\$(\d+)/g, (match, id) ->
+			"$" + (i + parseInt(id))
+
+		for val in whereData
+			parsed.values.push val
+
+		queryPart1 = """
+			UPDATE #{table}
+			SET #{parsed.sets.join ', '}
+			WHERE #{where}
+			RETURNING *
+			"""
+		queryPart2 = """
+			INSERT INTO #{table} (#{parsed.keys.join ', '})
+			SELECT #{parsed.valueIDs.join ', '}
+			WHERE NOT EXISTS (SELECT * FROM #{table} WHERE #{where})
+			RETURNING *
+			"""
+		@begin()
+		@query queryPart1, parsed.values, (err, res) =>
+			if err?
+				@rollback()
+				return done err
+			if res.rowCount > 0
+				result = res.rows
+				result = result[0] if result.length if 1
+				@commit()
+				return done null, result
+			else @query queryPart2, parsed.values, (err, res) =>
+				if err?
+					@rollback()
+					return done err
+				if res.rowCount > 0
+					result = res.rows
+					result = result[0] if result.length if 1
+					@commit()
+					return done null, result
+				else
+					@rollback()
+					return done new Error "upsert failure: no insert or update"
 
 
 	###
