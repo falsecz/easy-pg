@@ -16,6 +16,8 @@ db.on "end", (err) ->
 	console.log "Client is over"
 
 
+
+
 insertNum = (num) ->
 	db.insert "numbers", number: num,(err, res) ->
 		console.log "query fail ...", err if err
@@ -35,14 +37,14 @@ db.insert "numbers", number: -2,(err, res) ->
 	console.log "inserted num -2"
 	db.end()
 
-insertNum -3
-insertNum -4
-insertNum -5
+	insertNum -3
+	insertNum -4
+	insertNum -5
 
-db.insert "numbers", number: -6,(err, res) ->
-	console.log "query fail ...", err if err
-	console.log "inserted num -6"
-	db.end()
+	db.insert "numbers", number: -6,(err, res) ->
+		console.log "query fail ...", err if err
+		console.log "inserted num -6"
+		db.end()
 
 ###
 # test INSERT

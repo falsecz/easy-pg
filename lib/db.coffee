@@ -58,6 +58,7 @@ class Db extends EventEmitter
 		@poolSize = 10
 		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
+		@optsInQueue = no
 		@transaction = new TransactionStack() #stack for transactions
 
 		# parse connection string if needed
@@ -399,19 +400,18 @@ class Db extends EventEmitter
 			@state = "online"
 			
 			# set all opts and callback "ready" and _queuePull
-			if @optsQueue.length > 0 and @queue.length > 0
+			if @optsQueue.length > 0 and @optsInQueue is no and not @client.optsSet?
 				trans = []
 				trans.push @_createQueryObject "QueryRaw", "BEGIN"
 				trans = trans.concat @optsQueue
+				trans.push @_createQueryObject "QueryRaw", "COMMIT", (err, res)=>
+					return @_handleError err if err? #parameter setting failed
+					@client.optsSet = yes
+					@optsInQueue = no
 
-				shifted = @queue.shift()
-				keyWord = shifted.query.toUpperCase().trim().split(" ", 1)[0]
-				if keyWord isnt "BEGIN"
-					trans.push shifted if keyWord isnt "COMMIT"
-					trans.push @_createQueryObject "QueryRaw", "COMMIT"
-				
 				# create transaction: BEGIN, all options, first query, COMMIT
 				@queue = trans.concat @queue
+				@optsInQueue = yes
 
 			@emit "ready"
 			@_queuePull()   #process first query in the queue immediately
