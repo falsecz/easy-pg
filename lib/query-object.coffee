@@ -14,19 +14,16 @@ class QueryObject
 	it's set to "QueryAll"
 	@requires "type", "query", "done" -it's callback
 	###
-	constructor: (type, query, values, done) ->
+	constructor: (@type, @query, @values, @done) ->
+		#@type = type, @query = query,...
+
 		#(type, query, done)
-		if typeof values is "function"
-			done = values
-			values = null
+		if typeof @values is "function"
+			@done = @values
+			@values = null
 
 		#set default call if query call is unknown
-		type = "QueryAll" unless queryCall[type]?
-
-		@query = query
-		@values = values
-		@done = done
-		@type = type
+		@type = "QueryAll" unless queryCall[@type]?
 
 
 	###

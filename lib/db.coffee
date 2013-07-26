@@ -6,6 +6,8 @@ url		= require "url"
 {QueryObject}		= require "./query-object"
 {TransactionStack}	= require "./transaction-stack"
 
+setImmediate = setImmediate ? process.nextTick
+
 ###
 Deferred Postgresql Client Class
 
@@ -323,7 +325,8 @@ class Db extends EventEmitter
 			done = pointName
 			pointName = null
 
-		if pointName? then @query "ROLLBACK TO SAVEPOINT #{pointName}", done else @query "ROLLBACK", done
+		if pointName? then @query "ROLLBACK TO SAVEPOINT #{pointName}", done
+		else @query "ROLLBACK", done
 
 
 	###
@@ -613,7 +616,9 @@ class Db extends EventEmitter
 				@_transRestart() if @inTransaction
 				@_tryToConnect()
 		else # report error
-			if @listeners("error").length then @emit "error", err else throw err
+			if @listeners("error").length then setImmediate =>
+				@emit "error", err
+			else throw err
 
 
 ### ------- Export ------- ###
