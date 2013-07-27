@@ -1,17 +1,21 @@
 pg = if process.env.NATIVE then require("../").native else require "../"
 
-connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test?lazy=no"
+connOpts = "?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"
+connectionStr = "pg://postgres@localhost/myapp_test" + connOpts
 
 QUERY_DROP = "DROP TABLE IF EXISTS numbers;"
 QUERY_CREATE = "CREATE TABLE IF NOT EXISTS numbers (_id bigserial primary key, number int NOT NULL);"
 
 describe "Querying functions", ->
 	@timeout 10000 # 10sec
-	db = pg connectionStr
-	db.on 'error', (err) ->
-		console.log err
+	db = null
 
 	beforeEach ->
+		if db is null
+			db = pg connectionStr
+			db.on 'error', (err) ->
+				console.log err
+
 		#clear db-table numbers
 		db.query QUERY_DROP   #ignore error
 		db.query QUERY_CREATE #ignore error
@@ -47,6 +51,7 @@ describe "Querying functions", ->
 			db.insert "numbers", number: 0
 			db.insert "numbers", number: 1
 			db.insert "numbers", number: 2
+			db.insert "numbers", number: 3
 
 			db.delete "numbers", "number = $1", [0], (err, res)->
 				return done err if err?
@@ -55,10 +60,11 @@ describe "Querying functions", ->
 
 			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 				return done err if err?
-				return done new Error "test entry deletion failed" if (parseInt res.count, 10) isnt 1
+				return done new Error "test entry deletion failed" if (parseInt res.count, 10) isnt 2
 
 			db.delete "numbers", (err, res)->
 				return done err if err?
+				return done new Error "test entry deletion failed" if res.length isnt 2
 
 			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 				return done err if err?
@@ -88,7 +94,7 @@ describe "Querying functions", ->
 			db.insert "numbers", number: 99
 			db.update "numbers", number: 0, "number = $1", [99], (err, res) ->
 				return done err if err?
-				return done() if (res? and res.number is 0)
+				return done() if (res? and res[0].number is 0)
 
 		it "returns error on wrong query", (done) ->
 			db.update "table", value: 0, "value = 99", (err, res) ->
@@ -113,12 +119,11 @@ describe "Querying functions", ->
 			db.insert "numbers", number: 0 #ignore error
 			db.upsert "numbers", number: 1, "number = $1", [2], (err, res) ->
 				return done err if err?
-				unless res[0]?.operation is "insert" and res.length is 1
-					return done new Error "upsert-insert failed"
+				return done new Error "upsert-insert failed" unless res.length is 1
 				db.upsert "numbers", number: 0, "number = $1 OR number = $2", [0, 1], (err, res) ->
 					return done err if err?
-					if res[0]?.operation is "update" and res.length is 2 then return done()
-					else return done new Error "upsert-update failed"
+					return done new Error "upsert-update failed" unless res.length is 2
+					return done()
 
 		it "returns error on wrong query", (done) ->
 			db.upsert "table", value: 0, "value = 99", (err, res) ->
@@ -156,7 +161,7 @@ describe "Querying functions", ->
 			PAGE_COUNT = INSERT_COUNT = 100
 
 			for i in [0...INSERT_COUNT]
-				db.insert "numbers", number: i #ignore error
+				db.insert "numbers", number: i, (err, res)-> #ignore error
 
 			for i in [0...PAGE_COUNT]
 				db.paginate i, 10, "_id, number", "SELECT * FROM numbers", (err, res) ->

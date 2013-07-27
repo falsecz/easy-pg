@@ -5,6 +5,8 @@ url		= require "url"
 {QueryObject}		= require "./query-object"
 {TransactionStack}	= require "./transaction-stack"
 
+setImmediate = setImmediate ? process.nextTick 
+
 ###
 Deferred Postgresql Client Class
 
@@ -30,16 +32,21 @@ class Db extends EventEmitter
 	#handling for individual conn.options
 	optsHandler =
 		#conn.options.lazy
-		lazy: (client, val) ->
+		lazy: (client, val) =>
 			client._tryToConnect() if val is "no" or val is "false"
 		#conn.options.datestyle
-		datestyle: (client, val) ->
-			client._optsPush "QueryRaw", "SET DATESTYLE = #{val}", (err, res) ->
+		dateStyle: (client, val) =>
+			client._optsPush "QueryRaw", "SET DATESTYLE = #{val}", (err, res) =>
 				return client._handleError err if err?
 		#conn.options.searchPath
-		searchPath: (client, val) ->
-			client._optsPush "QueryRaw", "SET SEARCH_PATH = #{val}", (err, res) ->
+		searchPath: (client, val) =>
+			client._optsPush "QueryRaw", "SET SEARCH_PATH = #{val}", (err, res) =>
 				return client._handleError err if err?
+		#conn.options.pgVersion
+		pgVersion: (client, val) =>
+			client._optsPush "QueryRaw", "SELECT VERSION()", (err, res) =>
+				return client._handleError err if err?
+				client.serverVersion = res.rows[0].version.split(" ")[1].split(".")
 
 
 	###
@@ -76,13 +83,12 @@ class Db extends EventEmitter
 			cStr += "?"
 			cStr += "#{key}=#{val}&" for key, val of conn.options
 			cStr = cStr.substring 0, cStr.length-1 #remove last "&"
-		else delete conn.options if conn.options?
 
 		@connectionString = cStr #set client's connection string
 		@state = "offline"       #set client's connection state
 
 		# there's nothing more to do if options does not exist
-		return unless conn.options?
+		conn.options.pgVersion = null unless conn.options.pgVersion?
 
 		# set all options except lazy because lazy may
 		# force connection before all options are set
@@ -177,16 +183,84 @@ class Db extends EventEmitter
 			parsed.values.push val
 		
 		query = "UPDATE #{table} SET #{parsed.sets.join ', '} WHERE #{where} RETURNING *"
-		@queryOne query, parsed.values, done
+		@queryAll query, parsed.values, done
 
 
 	###
 	Updates (inserts) data in the specified "table"
 	@requires "table", "data", "where"
-	@note     requires Postgresql version 8.4, 9.0 or
-	          higher to support "WITH" query statement
+	@note     requires Postgresql version 9.1 or higher
+	          which supports "WITH" query statement in
+	          combination with UPDATE or INSERT
 	###
 	upsert: (table, data, where, whereData=[], done) =>
+		#version 9.1 and higher is needed to use one-query upsert
+		if @serverVersion? and @serverVersion[0] >= 9 and @serverVersion[1] >= 1
+			@upsertNew table, data, where, whereData, done
+		else
+			@upsertOld table, data, where, whereData, done
+
+	#upsert using two queries in transaction, slower than "new",
+	#but works with older server versions
+	upsertOld: (table, data, where, whereData=[], done) =>
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+
+		parsed = @_parseData data # parse "data" into arrays
+
+		# parse data from "whereData" and match it in "where"
+		i = parsed.values.length
+		where = where.replace /\$(\d+)/g, (match, id) =>
+			"$" + (i + parseInt(id))
+
+		#for val in whereData
+		#	parsed.values.push val
+		upValues = parsed.values.concat whereData
+
+		queryPart1 = """
+			UPDATE #{table}
+			SET #{parsed.sets.join ', '}
+			WHERE #{where}
+			RETURNING *
+			"""
+		queryPart2 = "IF" #run next query if true, skip it if false, skipped
+						#query will not be processed but its done will be
+						#called with (null, null) passed in
+		queryPart3 = """
+			INSERT INTO #{table} (#{parsed.keys.join ', '})
+			SELECT #{parsed.valueIDs.join ', '}
+			RETURNING *
+			"""
+
+		result = null
+		callbackPart1 = (err, res) =>
+			return done? err if err?
+			result = res if res.rows.length > 0
+
+		#branching function for "IF", has to return only
+		#true or false
+		branchingFunc = (res) =>
+			if res.rows.length > 0 then return false else return true
+
+		callbackPart3 = (err, res) =>
+			return done? err if err?
+
+			if (result? and res?) or ((not result?) and (not res?))
+				return done? new Error("upsert failure: one of insert or update should be used")
+			result = res if res? # this query was skipped if res == null
+
+			result = result.rows
+			return done? null, result
+
+		allQueries =	[queryPart1,	queryPart2,		queryPart3]
+		allValues =		[upValues,		null,			parsed.values]
+		allCallbacks =	[callbackPart1,	branchingFunc,	callbackPart3]
+
+		@_querySequence allQueries, allValues, allCallbacks
+
+	#one-query upsert -fast and safe, but server version > 9.1 needed !
+	upsertNew: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
 			done = whereData
 			whereData = []
@@ -260,27 +334,30 @@ class Db extends EventEmitter
 
 		clbckP1count = -1 #indicates err state if not changed
 		callbackPart1 = (err, res) =>
-			return done err if err?
-			clbckP1count = parseInt res.count
+			return done? err if err?
+			clbckP1count = parseInt res.rows[0].count
 
 		callbackPart2 = (err, res) =>
-			return if clbckP1count is -1
-			return done err if err?
+			return done? err if err?
+			return new Error "pagination failed, count = -1" if clbckP1count is -1
 
 			result =
 				totalCount:		clbckP1count
 				previousOffset:	offset - limit
 				currentOffset:	offset
 				nextOffset:		offset + limit
-				data:			res
+				data:			res.rows
 
 			result.previousOffset = null if result.previousOffset < 0
 			result.nextOffset = null if result.nextOffset > result.totalCount
 
-			return done null, result
+			return done? null, result
 
-		@queryOne queryPart1, values, callbackPart1
-		@queryAll queryPart2, values, callbackPart2
+		allQueries =	[queryPart1,	queryPart2]
+		allValues =		[values,		values]
+		allCallbacks =	[callbackPart1,	callbackPart2]
+
+		@_querySequence allQueries, allValues, allCallbacks
 
 
 	###
@@ -317,14 +394,26 @@ class Db extends EventEmitter
 			done = pointName
 			pointName = null
 
-		if pointName? then @query "ROLLBACK TO SAVEPOINT #{pointName}", done else @query "ROLLBACK", done
+		if pointName?
+			@query "ROLLBACK TO SAVEPOINT #{pointName}", done
+		else @query "ROLLBACK", done
+
+
+	###
+	Stops the client right after the last query callback, thus it
+	should not emit any query fail error
+	###
+	end: () =>
+		return if @wantToEnd
+		@wantToEnd = yes
+		@_kill() if @state isnt "online" or @queue.length is 0 #nothing to do
 
 
 	###
 	Immediately stops the client, queries in the queue will be lost
 	The client can be reconnected, by inserting another query
 	###
-	kill: () =>
+	_kill: () =>
 		clearTimeout @reconnectTimer if @reconnectTimer? # to prevent reconnecting after kill
 
 		if @client?
@@ -338,16 +427,6 @@ class Db extends EventEmitter
 		@state = "offline"
 		@inTransaction = no
 		@wantToEnd = no
-
-
-	###
-	Stops the client right after the last query callback, thus it
-	should not emit any query fail error
-	###
-	end: () =>
-		return if @wantToEnd
-		@wantToEnd = yes
-		@kill() if @state isnt "online" or @queue.length is 0 #nothing to do
 
 
 	###
@@ -418,6 +497,16 @@ class Db extends EventEmitter
 
 
 	###
+	Returns full DB result with data in the ".rows" entry
+	Queries are processed sequentialy in the core
+	@requires "queries"
+	###
+	_querySequence: (queries, values, dones) =>
+		#for the case of calling (type, query, done)
+		@_queuePush "QuerySequence", queries, values, dones
+
+
+	###
 	Creates query object with client specific callback
 	@requires "type", "query"
 	@returns  query object with callback connecten to
@@ -429,13 +518,22 @@ class Db extends EventEmitter
 			done = values
 			values = null
 
-		#create object with special callback to remove query from queue when it is processed
-		qObj = new QueryObject type, query, values, (err, result) =>
-			@kill() if @wantToEnd
+		#in the case of query sequence
+		if Array.isArray query
+			for i in [0...query.length]
+				if typeof values[i] is "function"
+					done[i] = values[i]
+					values[i] = null
+			dones = done
+			done = dones[dones.length-1]
+
+		callback = (err, result) =>
+			@_kill() if @wantToEnd
 
 			#switch transaction state with successful begin
-			keyWord = query.toUpperCase().trim().split(" ", 1)[0]
-			@_transStart() if keyWord is "BEGIN" and @transaction.isEmpty() and not err?
+			unless Array.isArray query
+				keyWord = query.toUpperCase().trim().split(" ", 1)[0]
+				@_transStart() if keyWord is "BEGIN" and @transaction.isEmpty() and not err?
 
 			#remove first querry from queue (it is processed now)
 			#if it is OK or error is on our side
@@ -449,8 +547,13 @@ class Db extends EventEmitter
 				@state = "offline"
 				@_queuePull() #process next query in the queue
 
-		#return created query object
-		return qObj
+		if Array.isArray query
+			dones[dones.length-1] = callback
+			callback = dones
+
+		#create object with special callback to remove query
+		#from queue when it is processed, return it
+		return new QueryObject type, query, values, callback
 
 
 	###
@@ -563,7 +666,9 @@ class Db extends EventEmitter
 				@_transRestart() if @inTransaction
 				@_tryToConnect()
 		else # report error
-			if @listeners("error").length then @emit "error", err else throw err
+			if @listeners("error").length then setImmediate =>
+				@emit "error", err
+			else throw err
 
 
 ### ------- Export ------- ###

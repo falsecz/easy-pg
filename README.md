@@ -75,7 +75,7 @@ Following connection parameters and options can be used:
   * <b>db</b> <i>(required)</i>
 * Connection options
   * <b>lazy</b> <i>-set to "no" or "false" to force the client to connect immediately</i>
-  * <b>datestyle</b> <i>-instead of (in SQL) commonly used SET DATESTYLE</i>
+  * <b>dateStyle</b> <i>-instead of (in SQL) commonly used SET DATESTYLE</i>
   * <b>searchPath</b> <i>-instead of (in SQL) commonly used SET SEARCH_PATH</i>
 
 Full connection string may look like this: <i>"pg://postgres:123456@localhost:5432/myapp_test?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"</i>, where <b>poolSize</b> is not handled by easy-pg, but postgres instance. Connection options are checked and applied every time the client is (re)connected, thus once you for example set <b>datestyle</b>, it is kept set until the client is disconnected and destroyed. Even if the connection is temporarily lost.

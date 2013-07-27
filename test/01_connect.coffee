@@ -33,7 +33,7 @@ describe "Immediate initialization", ->
 
 	it "create instance", () ->
 		db = pg connectionStr + "?lazy=no"
-		db.on "ready", db.kill
+		db.on "ready", db.end
 
 		assert.isObject db, "db must be an object"
 		fn = [
@@ -135,7 +135,7 @@ describe "Disconnection test", ->
 	it "emit end on calling kill", (done) ->
 		db = pg connectionStr + "?lazy=no"
 		db.on "ready", () ->
-			setTimeout db.kill, 200
+			setTimeout db._kill, 200
 
 		db.on "end", done
 

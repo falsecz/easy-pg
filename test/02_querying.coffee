@@ -1,13 +1,14 @@
 pg = if process.env.NATIVE then require("../").native else require "../"
 
-connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test?lazy=no"
+connOpts = "?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"
+connectionStr = "pg://postgres@localhost/myapp_test" + connOpts
 
 describe "Querying", ->
 	@timeout 10000 # 10sec
-	db = pg connectionStr
+	db = null
 
 	beforeEach ->
-		#@db = pg connectionStr, lazy: no
+		db = pg connectionStr if db is null
 
 	describe "query", ->
 
