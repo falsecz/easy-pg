@@ -42,8 +42,8 @@ class Db extends EventEmitter
 		searchPath: (client, val) =>
 			client._optsPush "QueryRaw", "SET SEARCH_PATH = #{val}", (err, res) =>
 				return client._handleError err if err?
-		#conn.options.pgVersion
-		pgVersion: (client, val) =>
+		#conn.options.serverVersion
+		serverVersion: (client, val) =>
 			client._optsPush "QueryRaw", "SELECT VERSION()", (err, res) =>
 				return client._handleError err if err?
 				client.serverVersion = res.rows[0].version.split(" ")[1].split(".")
@@ -88,7 +88,7 @@ class Db extends EventEmitter
 		@state = "offline"       #set client's connection state
 
 		# there's nothing more to do if options does not exist
-		conn.options.pgVersion = null unless conn.options.pgVersion?
+		conn.options.serverVersion = null unless conn.options.serverVersion?
 
 		# set all options except lazy because lazy may
 		# force connection before all options are set
@@ -126,8 +126,19 @@ class Db extends EventEmitter
 
 
 	###
+	Returns full DB result with data in the ".rows" entry
+	Queries in arrays are processed sequentialy in the core
+	@requires "queries"
+	###
+	_querySequence: (queries, values, dones) =>
+		#for the case of calling (type, query, done)
+		@_queuePush "QuerySequence", queries, values, dones
+
+
+	###
 	Inserts "data" into specified "table"
-	@requires "table", "data" -object or array of objects
+	@requires	"table", "data" -object or array of objects
+	@returns	array of inserted rows
 	###
 	insert: (table, data, done) =>
 		parsed = @_parseData data # parse data into arrays
@@ -146,13 +157,13 @@ class Db extends EventEmitter
 
 		query = "INSERT INTO #{table} (#{keys}) VALUES #{valueIDs} RETURNING *"
 		
-		return @queryAll query, values, done if Array.isArray parsed
-		return @queryOne query, values, done
+		return @queryAll query, values, done
 
 
 	###
 	Deletes data from specified "table"
-	@requires "table"
+	@requires	"table"
+	@returns	array of deleted rows
 	###
 	delete: (table, where, values, done) =>
 		if typeof where is "function"
@@ -165,7 +176,8 @@ class Db extends EventEmitter
 
 	###
 	Updates specified "table" using given "data"
-	@requires "table", "data", "where"
+	@requires	"table", "data", "where"
+	@returns	array of updated rows
 	###
 	update: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
@@ -188,10 +200,11 @@ class Db extends EventEmitter
 
 	###
 	Updates (inserts) data in the specified "table"
-	@requires "table", "data", "where"
-	@note     requires Postgresql version 9.1 or higher
-	          which supports "WITH" query statement in
-	          combination with UPDATE or INSERT
+	@requires	"table", "data", "where"
+	@returns	object with .operation and .rows[]
+	@note		requires Postgresql version 9.1 or higher which supports
+				"WITH" query statement in combination with UPDATE or INSERT
+				slower version of upsert will be used for older versions
 	###
 	upsert: (table, data, where, whereData=[], done) =>
 		#version 9.1 and higher is needed to use one-query upsert
@@ -200,8 +213,7 @@ class Db extends EventEmitter
 		else
 			@upsertOld table, data, where, whereData, done
 
-	#upsert using two queries in transaction, slower than "new",
-	#but works with older server versions
+	#slower, using 2 queries in transaction, but works with older server versions
 	upsertOld: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
 			done = whereData
@@ -248,9 +260,13 @@ class Db extends EventEmitter
 
 			if (result? and res?) or ((not result?) and (not res?))
 				return done? new Error("upsert failure: one of insert or update should be used")
+
 			result = res if res? # this query was skipped if res == null
 
-			result = result.rows
+			result =
+				operation: result.command.toUpperCase()
+				rows: result.rows
+
 			return done? null, result
 
 		allQueries =	[queryPart1,	queryPart2,		queryPart3]
@@ -297,12 +313,24 @@ class Db extends EventEmitter
 			SELECT 'insert' AS operation, * FROM try_create
 			"""
 
-		@queryAll upsQuery, parsed.values, done
+		@queryAll upsQuery, parsed.values, (err, res) =>
+			return done? err if err?
+			op = res[0].operation #store used operation
+
+			#remove column with operation
+			delete row.operation for row in res
+
+			result =
+				operation: op.toUpperCase()
+				rows: res
+
+			return done? null, result
 
 
 	###
 	Returns paginated "query" result containing max "limit" rows
-	@requires "offset", "limit", "cols", "query"
+	@requires	"offset", "limit", "cols", "query"
+	@returns	object with total count of rows, offsets and one-page rows
 	###
 	paginate: (offset, limit, cols, query, values, done) =>
 		if typeof values is "function"
@@ -494,16 +522,6 @@ class Db extends EventEmitter
 	_transStop: () =>
 
 		@inTransaction = no
-
-
-	###
-	Returns full DB result with data in the ".rows" entry
-	Queries are processed sequentialy in the core
-	@requires "queries"
-	###
-	_querySequence: (queries, values, dones) =>
-		#for the case of calling (type, query, done)
-		@_queuePush "QuerySequence", queries, values, dones
 
 
 	###

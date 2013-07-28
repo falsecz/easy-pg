@@ -24,7 +24,7 @@ describe "Querying functions", ->
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 99, (err, res) ->
 				return done err if err?
-				return done() if (res? and res.number is 99)
+				return done() if (res? and res[0].number is 99)
 
 		it "returns error on wrong query", (done) ->
 			db.insert "table", value: 0, (err, res) ->
@@ -119,10 +119,12 @@ describe "Querying functions", ->
 			db.insert "numbers", number: 0 #ignore error
 			db.upsert "numbers", number: 1, "number = $1", [2], (err, res) ->
 				return done err if err?
-				return done new Error "upsert-insert failed" unless res.length is 1
+				unless (res.rows.length is 1 and res.operation is "INSERT")
+					return done new Error "upsert-insert failed"
 				db.upsert "numbers", number: 0, "number = $1 OR number = $2", [0, 1], (err, res) ->
 					return done err if err?
-					return done new Error "upsert-update failed" unless res.length is 2
+					unless (res.rows.length is 2 and res.operation is "UPDATE")
+						return done new Error "upsert-update failed"
 					return done()
 
 		it "returns error on wrong query", (done) ->
