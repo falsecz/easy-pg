@@ -40,7 +40,8 @@ class QueryObject
 	@returns  string representation of this query
 	###
 	toString: () =>
-		"#{@type}: \"#{@query}\" + [#{@values}]"
+		values =  if @values? then " + [#{@values}]" else ""
+		"#{@type}: \"#{@query}\"#{values}"
 
 	###
 	Different types of query call

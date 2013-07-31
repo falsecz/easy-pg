@@ -76,7 +76,8 @@ class Db extends EventEmitter
 		# check connection parameters
 		for param in requiredConnParams
 			unless (param of conn and conn["#{param}"]?)
-				return @_handleError "#{param} missing in connection parameters"
+				@_handleError "#{param} missing in connection parameters"
+				return
 
 		#create connection string for pg
 		pswd = if conn.password? then ":#{conn.password}" else ""
@@ -169,8 +170,6 @@ class Db extends EventEmitter
 	delete: (table, where, values, done) =>
 		if typeof where is "function"
 			done = where
-			where = null
-			values = null
 			query = "DELETE FROM #{table} RETURNING *"
 		else
 			if typeof values is "function"
@@ -522,7 +521,9 @@ class Db extends EventEmitter
 		if @client?
 			@client.removeListener "error", @_clientError
 			@client.removeListener "end", @_clientEnd
-		@done() if @done?
+		if @done?
+			debug "connection returned: ", @client.processID
+			@done()
 
 
 	###
@@ -538,12 +539,14 @@ class Db extends EventEmitter
 		@pg.defaults.poolLog = (dta) ->
 			poolDebug dta
 
+		debug "connection requested"
 		@pg.connect @connectionString, (err, client, done) =>
 			if err #register request for later connection
 				@reconnectTimer = setTimeout @_tryToConnect, 2000
 				return @_handleError err #new Error "connection failed ..."
 
 			@client = client
+			debug "connection obtained: ", client.processID
 
 			@done = () ->
 				done()
