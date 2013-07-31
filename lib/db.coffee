@@ -70,7 +70,8 @@ class Db extends EventEmitter
 		# check connection parameters
 		for param in requiredConnParams
 			unless (param of conn and conn["#{param}"]?)
-				return @_handleError "#{param} missing in connection parameters"
+				@_handleError "#{param} missing in connection parameters"
+				return
 
 		#create connection string for pg
 		pswd = if conn.password? then ":#{conn.password}" else ""
