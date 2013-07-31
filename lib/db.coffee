@@ -154,6 +154,12 @@ class Db extends EventEmitter
 		
 		return @queryAll query, values, done
 
+	# The same as insert, returns only the first row of the result
+	insertOne: (table, data, done) =>
+		@insert table, data, (err, res) =>
+			return done err if err?
+			done null, res[0]
+
 
 	###
 	Deletes data from specified "table"
@@ -163,11 +169,34 @@ class Db extends EventEmitter
 	delete: (table, where, values, done) =>
 		if typeof where is "function"
 			done = where
+			where = null
+			values = null
 			query = "DELETE FROM #{table} RETURNING *"
 		else
+			if typeof values is "function"
+				done = values
+				values = null
 			query = "DELETE FROM #{table} WHERE #{where} RETURNING *"
 
 		@queryAll query, values, done
+
+	# The same as delete, returns only the first row of the result
+	deleteOne: (table, where, values, done) =>
+		if typeof where is "function"
+			done = where
+			@delete table, (err, res) =>
+				return done err if err?
+				done null, res[0]
+
+		else if typeof values is "function"
+				done = values
+				values = null
+
+		@delete table, where, values, (err, res) =>
+			console.log "del called"
+			console.log "args: ", arguments
+			return done err if err?
+			done null, res[0]
 
 
 	###
@@ -193,6 +222,15 @@ class Db extends EventEmitter
 		query = "UPDATE #{table} SET #{parsed.sets.join ', '} WHERE #{where} RETURNING *"
 		@queryAll query, parsed.values, done
 
+	# The same as update, returns only the first row of the result
+	updateOne: (table, data, where, whereData=[], done) =>
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+		@update table, data, where, whereData, (err, res) =>
+			return done err if err?
+			done null, res[0]
+
 
 	###
 	Updates (inserts) data in the specified "table"
@@ -208,6 +246,15 @@ class Db extends EventEmitter
 			@upsertNew table, data, where, whereData, done
 		else
 			@upsertOld table, data, where, whereData, done
+
+	# The same as upsert, returns only the first row of the result
+	upsertOne: (table, data, where, whereData=[], done) =>
+		if typeof whereData is "function"
+			done = whereData
+			whereData = []
+		@upsert table, data, where, whereData, (err, res) =>
+			return done err if err?
+			done null, res.rows[0]
 
 	#slower, using 2 queries in transaction, but works with older server versions
 	upsertOld: (table, data, where, whereData=[], done) =>
