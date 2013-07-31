@@ -135,7 +135,7 @@ describe "Disconnection test", ->
 	it "emit end on calling kill", (done) ->
 		db = pg connectionStr + "?lazy=no"
 		db.on "ready", () ->
-			setTimeout db.kill, 200
+			setTimeout db._kill, 200
 
 		db.on "end", done
 

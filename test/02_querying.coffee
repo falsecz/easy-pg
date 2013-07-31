@@ -1,6 +1,6 @@
 pg = if process.env.NATIVE then require("../").native else require "../"
 
-connOpts = "?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"
+connOpts = "?lazy=no&dateStyle=iso, mdy&searchPath=public&poolSize=1"
 connectionStr = "pg://postgres@localhost/myapp_test" + connOpts
 
 

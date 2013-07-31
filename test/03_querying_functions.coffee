@@ -1,6 +1,6 @@
 pg = if process.env.NATIVE then require("../").native else require "../"
 
-connOpts = "?lazy=no&datestyle=iso, mdy&searchPath=public&poolSize=1"
+connOpts = "?lazy=no&dateStyle=iso, mdy&searchPath=public&poolSize=1"
 connectionStr = "pg://postgres@localhost/myapp_test" + connOpts
 
 QUERY_DROP = "DROP TABLE IF EXISTS numbers;"
@@ -24,7 +24,7 @@ describe "Querying functions", ->
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 99, (err, res) ->
 				return done err if err?
-				return done() if (res? and res.number is 99)
+				return done() if (res? and res[0].number is 99)
 
 		it "returns error on wrong query", (done) ->
 			db.insert "table", value: 0, (err, res) ->
@@ -51,18 +51,21 @@ describe "Querying functions", ->
 			db.insert "numbers", number: 0
 			db.insert "numbers", number: 1
 			db.insert "numbers", number: 2
+			db.insert "numbers", number: 3
 
 			db.delete "numbers", "number = $1", [0], (err, res)->
 				return done err if err?
+
 			db.delete "numbers", "number = 1", (err, res)->
 				return done err if err?
 
 			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 				return done err if err?
-				return done new Error "test entry deletion failed" if (parseInt res.count, 10) isnt 1
+				return done new Error "test entry deletion failed" if (parseInt res.count, 10) isnt 2
 
 			db.delete "numbers", (err, res)->
 				return done err if err?
+				return done new Error "test entry deletion failed" if res.length isnt 2
 
 			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
 				return done err if err?
@@ -92,7 +95,7 @@ describe "Querying functions", ->
 			db.insert "numbers", number: 99
 			db.update "numbers", number: 0, "number = $1", [99], (err, res) ->
 				return done err if err?
-				return done() if (res? and res.number is 0)
+				return done() if (res? and res[0].number is 0)
 
 		it "returns error on wrong query", (done) ->
 			db.update "table", value: 0, "value = 99", (err, res) ->
@@ -112,22 +115,24 @@ describe "Querying functions", ->
 				return done() if (parseInt res.sum, 10) is 0
 
 	describe "upsert", ->
-		# insert, and upsert causing one insert followed by two updates expected
+		# insert, and uppsert causing one insert followed by two updates expected
 		it "returns result on right query", (done) ->
 			db.insert "numbers", number: 0 #ignore error
 			db.upsert "numbers", number: 1, "number = $1", [2], (err, res) ->
 				return done err if err?
-				if res.length
+				unless (res.rows.length is 1 and res.operation is "INSERT")
 					return done new Error "upsert-insert failed"
-				db.upsert "numbers", number: 0, "number = $1", [1], (err, res) ->
+				db.upsert "numbers", number: 0, "number = $1 OR number = $2", [0, 1], (err, res) ->
 					return done err if err?
+					unless (res.rows.length is 2 and res.operation is "UPDATE")
+						return done new Error "upsert-insert failed"
 					return done()
 
 		it "returns error on wrong query", (done) ->
 			db.upsert "table", value: 0, "value = 99", (err, res) ->
 				return done() if err?
 
-		xit "successful sequence of 100 fast queries", (done) ->
+		it "successful sequence of 100 fast queries", (done) ->
 			UPSERT_COUNT = 50
 
 			for i in [0...UPSERT_COUNT]
