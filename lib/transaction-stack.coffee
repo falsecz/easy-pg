@@ -33,14 +33,17 @@ class TransactionStack
 	@requires x - queryObject
 	###
 	push: (x) =>
-		query = x.query.toUpperCase().trim().split " ", 2
-		cmd = query[0]
-		name = ""
+		if Array.isArray x.query #in the case of QuerySequence
+			cmd = ""
+		else
+			query = x.query.toUpperCase().trim().split " ", 2
+			cmd = query[0]
+			name = ""
 
-		# ROLLBACK TO savepoint_name
-		if query[0] is "ROLLBACK" and query[1] is "TO"
-			cmd += query[1]
-			name = query[2]
+			# ROLLBACK TO savepoint_name
+			if query[0] is "ROLLBACK" and query[1] is "TO"
+				cmd += query[1]
+				name = query[2]
 
 		switch cmd
 			when "BEGIN" # push B

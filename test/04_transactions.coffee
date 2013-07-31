@@ -24,6 +24,7 @@ describe "Transactions", ->
 
 		db.begin()
 		db.insert "numbers", number: i for i in [1..INSERT_COUNT] # 1-10
+		db.upsert "numbers", number: 1, "number = 1" #replace 0 by 0
 		db.commit()
 		db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore errors
 			return done err if err?
