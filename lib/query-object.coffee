@@ -74,11 +74,18 @@ class QueryObject
 						dones[dones.length-1] err, result
 
 
+	###
+	Handles error in QuerySequence
+	@requires client, dones, error
+	###
 	_handleError= (client, dones, error) =>
 		client.query "ROLLBACK", (err, res) =>
 			dones[dones.length-1] error
 
-
+	###
+	Calls one query from QuerySequence
+	@requires client, queries, values, dones, index, callback
+	###
 	_callQuery= (client, queries, values, dones, index, callback) =>
 		client.query queries[index], values[index], (err, res) =>
 			return callback err if err?				
