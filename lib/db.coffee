@@ -348,7 +348,7 @@ class Db extends EventEmitter
 		# this would be much safer using transaction
 		# BEGIN queryPart1 queryPart2 COMMIT
 		# but it is about 20% slower
-		queryPart1 = "SELECT COUNT(*) FROM #{query}"
+		queryPart1 = "SELECT COUNT(#{cols}) FROM #{query}"
 		queryPart2 = """
 			SELECT #{cols} FROM #{query}
 			ORDER BY #{orderBy}
