@@ -77,11 +77,11 @@ class QueryObject
 	
 	_handleError= (client, dones, error) =>
 		client.query "ROLLBACK", (err, res) =>
-		dones[dones.length-1] error
+			dones[dones.length-1] error
 
 	_callQuery= (client, queries, values, dones, index, callback) =>
 		client.query queries[index], values[index], (err, res) =>
-			return callback err if err?	
+			return callback err if err?
 			dones[index]? err, res
 			index++
 
