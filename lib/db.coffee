@@ -370,10 +370,10 @@ class Db extends EventEmitter
 
 	###
 	Returns paginated "query" result containing max "limit" rows
-	@requires "offset", "limit", "cols", "query"
+	@requires "offset", "limit", "cols", "query", "orderBy"
 	@returns object with total count of rows, offsets and one-page rows
 	###
-	paginate: (offset, limit, cols, query, values, done) =>
+	paginate: (offset, limit, cols, query, orderBy, values, done) =>
 		if typeof values is "function"
 			done = values
 			values = null
@@ -381,28 +381,18 @@ class Db extends EventEmitter
 		offset = parseInt offset
 		limit = parseInt limit
 
-		# separate query and its ORDER BY
-		index = query.toLowerCase().lastIndexOf "order by"
-		orderBy = "ORDER BY #{cols}"
-
-		if index > 0
-			orderBy = query.substring index
-			query = query.substring 0, index
-
 		# queries we need to perform pagination
 		#
 		# this would be much safer using transaction
 		# BEGIN queryPart1 queryPart2 COMMIT
 		# but it is about 20% slower
-		queryPart1 = "SELECT COUNT(*) FROM (#{query}) AS countResult"
+		queryPart1 = "SELECT COUNT(*) FROM #{query}"
 		queryPart2 = """
-			SELECT #{cols} FROM (#{query}) AS queryResult
-			#{orderBy}
+			SELECT #{cols} FROM #{query}
+			ORDER BY #{orderBy}
 			OFFSET #{offset} LIMIT #{limit}
 			"""
-		console.log "queries"
-		#console.log queryPart1
-		#console.log queryPart2
+
 		clbckP1count = -1 #indicates err state if not changed
 		callbackPart1 = (err, res) =>
 			return done? err if err?
