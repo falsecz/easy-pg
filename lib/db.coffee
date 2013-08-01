@@ -495,11 +495,13 @@ class Db extends EventEmitter
 	_acceptable: (code) ->
 		return no unless code?
 		errClass = code.slice(0, 2) #first two signs describe error class
-		errClass in [
+		classOK = errClass in [
 			"00"	# Successful Completion
 			"08"	# Connection Exception
 			"57"	# Operator Intervention
 		]
+
+		classOK and code isnt "08P01" # Protocol Violation
 
 
 	###
