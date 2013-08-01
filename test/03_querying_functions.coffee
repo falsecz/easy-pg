@@ -154,7 +154,7 @@ describe "Querying functions", ->
 
 			db.paginate 0, 10, "_id, number", "numbers WHERE _id > $1", "_id", [9], (err, res) ->
 				return done err if err?
-				return done() if res.totalCount is 1
+				return done() if res.data.length is 1
 
 		it "returns error on wrong query", (done) ->
 			db.paginate 0, 10, "_id, number", "table", "_id, number", (err, res) ->
@@ -172,8 +172,7 @@ describe "Querying functions", ->
 						db.end()
 						return done err
 					# if last page
-					if res.totalCount is PAGE_COUNT and res.nextOffset is null
-						if res.currentOffset is PAGE_COUNT - 1
-							db.end()
-							return done()
+					if res.currentOffset is PAGE_COUNT - 1
+						db.end()
+						return done()
 

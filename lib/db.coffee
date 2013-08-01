@@ -381,18 +381,50 @@ class Db extends EventEmitter
 		offset = parseInt offset
 		limit = parseInt limit
 
+		pgQuery = """
+			SELECT #{cols} FROM #{query}
+			ORDER BY #{orderBy}
+			OFFSET #{offset} LIMIT #{limit}
+			"""
+		callback = (err, res) =>
+			return done? err if err?
+
+			result =
+				totalCount:		undefined
+				previousOffset: offset - limit
+				currentOffset:	offset
+				nextOffset:		offset + limit
+				data:			res
+
+			result.previousOffset = null if result.previousOffset < 0
+			#result.nextOffset = null if result.nextOffset > result.totalCount
+
+			return done? null, result
+
+		@queryAll pgQuery, values, callback
+	### CONTAINS COUNT OF ALL RESULTS BUT IT IS SLOW
+	paginate: (offset, limit, cols, query, orderBy, values, done) =>
+		if typeof values is "function"
+			done = values
+			values = null
+
+		offset = parseInt offset
+		limit = parseInt limit
+
 		# queries we need to perform pagination
 		#
 		# this would be much safer using transaction
 		# BEGIN queryPart1 queryPart2 COMMIT
 		# but it is about 20% slower
-		queryPart1 = "SELECT COUNT(#{cols}) FROM #{query}"
+		queryPart1 = "SELECT COUNT(*) FROM #{query}"
 		queryPart2 = """
 			SELECT #{cols} FROM #{query}
 			ORDER BY #{orderBy}
 			OFFSET #{offset} LIMIT #{limit}
 			"""
-
+		console.log queryPart1
+		console.log queryPart2
+		console.log values
 		clbckP1count = -1 #indicates err state if not changed
 		callbackPart1 = (err, res) =>
 			return done? err if err?
@@ -419,6 +451,7 @@ class Db extends EventEmitter
 		allCallbacks = 	[callbackPart1,	callbackPart2]
 
 		@_querySequence allQueries, allValues, allCallbacks
+	###
 
 
 	###
