@@ -151,12 +151,12 @@ describe "Querying functions", ->
 			for i in [0...INSERT_COUNT]
 				db.insert "numbers", number: i #ignore error
 
-			db.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9], (err, res) ->
+			db.paginate 0, 10, "_id, number", "numbers WHERE _id > $1", "_id", [9], (err, res) ->
 				return done err if err?
 				return done() if res.totalCount is 1
 
 		it "returns error on wrong query", (done) ->
-			db.paginate 0, 10, "_id, number", "SELECT * FROM table", (err, res) ->
+			db.paginate 0, 10, "_id, number", "table", "_id, number", (err, res) ->
 				return done() if err?
 
 		it "successful sequence of 100 fast queries", (done) ->
@@ -166,7 +166,7 @@ describe "Querying functions", ->
 				db.insert "numbers", number: i, (err, res)-> #ignore error
 
 			for i in [0...PAGE_COUNT]
-				db.paginate i, 10, "_id, number", "SELECT * FROM numbers", (err, res) ->
+				db.paginate i, 10, "_id, number", "numbers", "number", (err, res) ->
 					if err?
 						db.end()
 						return done err
