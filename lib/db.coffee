@@ -397,7 +397,7 @@ class Db extends EventEmitter
 				data:			res
 
 			result.previousOffset = null if result.previousOffset < 0
-			#result.nextOffset = null if result.nextOffset > result.totalCount
+			result.nextOffset = null if result.data.length < limit
 
 			return done? null, result
 
