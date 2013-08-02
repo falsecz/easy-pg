@@ -169,7 +169,7 @@ client.queryOne "SELECT $1 FROM $2", ["*", "table"], (err, res) -> # do sth. in 
 
 ###Built-in Querying Functions
 
-Easy-pg provides some well known querying functions as well to make your work easier and source code cleaner. Implemented querying functions are <b>insert</b>, <b>update</b>, <b>upsert</b>, <b>delete</b> and <b>paginate</b>.
+Easy-pg provides some well known querying functions as well to make your work easier and source code cleaner. Implemented querying functions are <b>insert</b>, <b>update</b>, <b>upsert</b>, <b>delete</b> and <b>paginate</b>. All these functions can be called with "One" postfix (e.g. updateOne) to make them return only the first row of the result.
 
 ```coffeescript
 epg = require "easy-pg"
@@ -204,11 +204,11 @@ client.delete "numbers", "number = 0", (err, res) -> # do sth. in callback...
 client.delete "numbers", "number = $1", [1] # deletes rows with 1
 client.delete "numbers", "number = $1", [1], (err, res) -> # do sth. in callback...
 
-# offset, limit, columns, query
-client.paginate 0, 10, "number", "SELECT * FROM numbers" # lists first 10 rows of the given query
-client.paginate 0, 10, "number", "SELECT * FROM numbers", (err, res) -> # do sth. in callback...
-client.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9] # the same with ids > 9
-client.paginate 0, 10, "_id, number", "SELECT * FROM numbers WHERE _id > $1 ORDER BY _id", [9], (err, res) -> # do sth. in callback...
+# offset, limit, columns, query result (table), orderBy
+client.paginate 0, 10, "number", "numbers", "_id" # lists first 10 rows of the given table
+client.paginate 0, 10, "number", "numbers", "_id", (err, res) -> # do sth. in callback...
+client.paginate 0, 10, "_id, number", "numbers WHERE _id > $1", "_id", [9] # the same with ids > 9
+client.paginate 0, 10, "_id, number", "numbers WHERE _id > $1", "_id", [9], (err, res) -> # do sth. in callback...
 ```
 
 ###Transactions
@@ -265,7 +265,7 @@ Stacks are used to allow the client proper handling of nested transactions! Pseu
 Minor errors were mentioned in the text above. All messages sent by PostgreSQL server contain error codes to inform client about the state of the database. Most of these codes are not handled, just forwarded through callback-err, except of 3 error code classes:
 
 * <b>00</b> Successful Completion
-* <b>08</b> Connection Exception
+* <b>08</b> Connection Exception (08Pxx is excluded)
 * <b>57</b> Operator Intervention
 
 These 3 types of errors only forces the client to restart current connection and continue in query queue processing later. More information about PostgreSQL error codes can be found <a href="http://www.postgresql.org/docs/9.2/static/errcodes-appendix.html">here</a>.
