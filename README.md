@@ -78,6 +78,7 @@ Following connection parameters and options can be used:
   * <b>poolSize</b> <i>-max number of connections in the pool</i>
   * <b>dateStyle</b> <i>-instead of (in SQL) commonly used SET DATESTYLE</i>
   * <b>searchPath</b> <i>-instead of (in SQL) commonly used SET SEARCH_PATH</i>
+  * <b>pgVersion</b> <i>-version of the postgreSQL instance, set automatically</i>
 
 Full connection string may look like this: <i>"pg://postgres:123456@localhost:5432/myapp_test?lazy=no&dateStyle=iso, mdy&searchPath=public&poolSize=1&hang=no"</i>, where <b>hang</b> is not handled by easy-pg, but may be processed by postgres instance. Connection options are checked and applied every time the client is (re)connected, thus once you for example set <b>dateStyle</b>, it is kept set until the client is disconnected and destroyed. Even if the connection is temporarily lost.
 
@@ -179,24 +180,28 @@ client = epg "pg://postgres@localhost/myapp_test"
 # db contains table "numbers" with column "number"
 
 # table, value
+# returns array of inserted rows
 client.insert "numbers", {number: 0} # insert one row
 client.insert "numbers", {number: 4}, (err, res) -> # do sth. in callback...
 client.insert "numbers", [{number: 1}, {number: 2}, {number: 3}] # insert 3 rows
 client.insert "numbers", [{number: 1}, {number: 2}, {number: 3}], (err, res) -> # do sth. in callback...
 
 # table, value, where
+# returns array of updated rows
 client.update "numbers", {number: 99}, "number = 0" # replaces number 0 by 99
 client.update "numbers", {number: 99}, "number = 0", (err, res) -> # do sth. in callback...
 client.update "numbers", {number: 99}, "number = $1", [1] # replaces number 1 by 99
 client.update "numbers", {number: 99}, "number = $1", [1], (err, res) -> # do sth. in callback...
 
 # table, value, where
+# returns object with .operation (insert/update) and .rows[] (array of rows)
 client.upsert "numbers", {number: 9}, "number = 9" # inserts number 9
 client.upsert "numbers", {number: 9}, "number = 9", (err, res) -> # do sth. in callback...
 client.upsert "numbers", {number: 9}, "number = $1", [9] # replaces number 9 by 9
 client.upsert "numbers", {number: 9}, "number = $1", [9], (err, res) -> # do sth. in callback...
 
 # table
+# returns array of deleted rows
 client.delete "numbers" # deletes table "numbers"
 client.delete "numbers", (err, res) -> # do sth. in callback...
 client.delete "numbers", "number = 0" # deletes rows with 0
@@ -205,6 +210,7 @@ client.delete "numbers", "number = $1", [1] # deletes rows with 1
 client.delete "numbers", "number = $1", [1], (err, res) -> # do sth. in callback...
 
 # offset, limit, columns, query result (table), orderBy
+# returns object with offsets and array of rows in .data[]
 client.paginate 0, 10, "number", "numbers", "_id" # lists first 10 rows of the given table
 client.paginate 0, 10, "number", "numbers", "_id", (err, res) -> # do sth. in callback...
 client.paginate 0, 10, "_id, number", "numbers WHERE _id > $1", "_id", [9] # the same with ids > 9

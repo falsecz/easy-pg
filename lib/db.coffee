@@ -71,7 +71,9 @@ class Db extends EventEmitter
 		# parse connection string if needed
 		conn = @_parseConn conn if typeof conn is "string"
 
-		return @_handleError "wrong connection parameter - not string, not object" if typeof conn isnt "object"
+		if typeof conn isnt "object"
+			@_handleError "wrong connection parameter - not string, not object"
+			return
 
 		# check connection parameters
 		for param in requiredConnParams
