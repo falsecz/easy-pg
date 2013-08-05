@@ -29,7 +29,7 @@ class Db extends EventEmitter
 		#"port"		not required
 		"db"
 	]
-	
+
 	#handling for individual conn.options
 	optsHandler =
 		#conn.options.lazy
@@ -65,7 +65,7 @@ class Db extends EventEmitter
 		@poolSize = 10
 		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
-		@optsInQueue = no
+
 		@transaction = new TransactionStack() #stack for transactions
 
 		# parse connection string if needed
@@ -154,7 +154,7 @@ class Db extends EventEmitter
 			valueIDs = " (#{parsed.valueIDs.join ', '})"
 
 		query = "INSERT INTO #{table} (#{keys}) VALUES #{valueIDs} RETURNING *"
-		
+
 		return @queryAll query, values, done
 
 	# The same as insert, returns only the first row of the result
@@ -167,7 +167,7 @@ class Db extends EventEmitter
 	###
 	Deletes data from specified "table"
 	@requires	"table"
-	@returns	array of deleted rows 
+	@returns	array of deleted rows
 	###
 	delete: (table, where, values, done) =>
 		if typeof where is "function"
@@ -203,7 +203,7 @@ class Db extends EventEmitter
 	###
 	Updates specified "table" using given "data"
 	@requires	"table", "data", "where"
-	@returns	array of updated rows 
+	@returns	array of updated rows
 	###
 	update: (table, data, where, whereData=[], done) =>
 		if typeof whereData is "function"
@@ -219,7 +219,7 @@ class Db extends EventEmitter
 
 		for val in whereData
 			parsed.values.push val
-		
+
 		query = "UPDATE #{table} SET #{parsed.sets.join ', '} WHERE #{where} RETURNING *"
 		@queryAll query, parsed.values, done
 
@@ -524,9 +524,9 @@ class Db extends EventEmitter
 				#console.log pool
 				pool.destroyAllNow()
 				delete @pg.pools.all['"' + @connectionString + '"']
-				
+
 			@emit "end"# if @state isnt "online"
-		
+
 		clearTimeout @reconnectTimer if @reconnectTimer? # once more, just for sure
 
 		@state = "offline"
@@ -541,7 +541,7 @@ class Db extends EventEmitter
 	###
 	_querySequence: (queries, values, dones) =>
 		#for the case of calling (type, query, done)
-		@_queuePush "QuerySequence", queries, values, dones 
+		@_queuePush "QuerySequence", queries, values, dones
 
 
 	_clearAndPoolClient: () =>
@@ -577,25 +577,25 @@ class Db extends EventEmitter
 
 			@done = () ->
 				done()
-			
+
 			@client.on "error", @_clientError
 			@client.on "end", @_clientEnd
 
 			@state = "online"
-			
+
 			# set all opts and callback "ready" and _queuePull
-			if @optsQueue.length > 0 and @optsInQueue is no and not @client.optsSet?
+			if @optsQueue.length > 0 and not client.optsSet?
 				trans = []
 				trans.push @_createQueryObject "QueryRaw", "BEGIN"
 				trans = trans.concat @optsQueue
 				trans.push @_createQueryObject "QueryRaw", "COMMIT", (err, res)=>
 					return @_handleError err if err? #parameter setting failed
-					@client.optsSet = yes
-					@optsInQueue = no
+					client.optsSet = yes
 
 				# create transaction: BEGIN, all options, first query, COMMIT
 				@queue = trans.concat @queue
-				@optsInQueue = yes
+
+				# console.log @queue
 
 			@emit "ready"
 			@_queuePull()   #process first query in the queue immediately
@@ -641,7 +641,7 @@ class Db extends EventEmitter
 	_transRestart: () =>
 		@queue = @transaction.queue.concat @queue
 		@transaction.flush()
-		
+
 
 	###
 	To indicate end of transaction
@@ -806,6 +806,8 @@ class Db extends EventEmitter
 	@requires "err", it has to be string or instance of Error
 	###
 	_handleError : (err) =>
+		console.log "mrdka ------------------------------------".red
+		console.log err
 		err = new Error err if typeof err is "string"
 
 		if (@_acceptable err?.code) #if it is not absolute failure, reconnect
