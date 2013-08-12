@@ -1,4 +1,5 @@
 debug	= require("debug") "easy-pg-db"
+debugErr	= require("debug") "easy-pg-err"
 poolDebug	= require("debug") "easy-pg-pool"
 url		= require "url"
 
@@ -160,8 +161,8 @@ class Db extends EventEmitter
 	# The same as insert, returns only the first row of the result
 	insertOne: (table, data, done) =>
 		@insert table, data, (err, res) =>
-			return done err if err?
-			done null, res[0]
+			return done? err if err?
+			done? null, res[0]
 
 
 	###
@@ -194,10 +195,8 @@ class Db extends EventEmitter
 				values = null
 
 		@delete table, where, values, (err, res) =>
-			console.log "del called"
-			console.log "args: ", arguments
-			return done err if err?
-			done null, res[0]
+			return done? err if err?
+			done? null, res[0]
 
 
 	###
@@ -229,8 +228,8 @@ class Db extends EventEmitter
 			done = whereData
 			whereData = []
 		@update table, data, where, whereData, (err, res) =>
-			return done err if err?
-			done null, res[0]
+			return done? err if err?
+			done? null, res[0]
 
 
 	###
@@ -254,8 +253,8 @@ class Db extends EventEmitter
 			done = whereData
 			whereData = []
 		@upsert table, data, where, whereData, (err, res) =>
-			return done err if err?
-			done null, res.rows[0]
+			return done? err if err?
+			done? null, res.rows[0]
 
 	#slower, using 2 queries in transaction, but works with older server versions
 	upsertOld: (table, data, where, whereData=[], done) =>
@@ -806,9 +805,9 @@ class Db extends EventEmitter
 	@requires "err", it has to be string or instance of Error
 	###
 	_handleError : (err) =>
-		console.log "mrdka ------------------------------------".red
-		console.log err
 		err = new Error err if typeof err is "string"
+
+		debugErr err
 
 		if (@_acceptable err?.code) #if it is not absolute failure, reconnect
 			if (@state isnt "connecting") #if there's not another restart in progress
