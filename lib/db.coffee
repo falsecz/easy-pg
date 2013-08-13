@@ -66,6 +66,7 @@ class Db extends EventEmitter
 		@poolSize = 10
 		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
+		@optsInQueue = no #yes if opts-queue is inserted into query-queue
 
 		@transaction = new TransactionStack() #stack for transactions
 
@@ -190,13 +191,14 @@ class Db extends EventEmitter
 				return done err if err?
 				done null, res[0]
 
-		else if typeof values is "function"
+		else
+			if typeof values is "function"
 				done = values
 				values = null
 
-		@delete table, where, values, (err, res) =>
-			return done? err if err?
-			done? null, res[0]
+			@delete table, where, values, (err, res) =>
+				return done? err if err?
+				done? null, res[0]
 
 
 	###
@@ -227,6 +229,7 @@ class Db extends EventEmitter
 		if typeof whereData is "function"
 			done = whereData
 			whereData = []
+
 		@update table, data, where, whereData, (err, res) =>
 			return done? err if err?
 			done? null, res[0]
@@ -582,19 +585,20 @@ class Db extends EventEmitter
 
 			@state = "online"
 
-			# set all opts and callback "ready" and _queuePull
-			if @optsQueue.length > 0 and not client.optsSet?
+			# set all opts if there are some and they are not in the query-queue
+			if @optsQueue.length > 0 and @optsInQueue is no and not client.optsSet?
 				trans = []
 				trans.push @_createQueryObject "QueryRaw", "BEGIN"
 				trans = trans.concat @optsQueue
 				trans.push @_createQueryObject "QueryRaw", "COMMIT", (err, res)=>
-					return @_handleError err if err? #parameter setting failed
+					return @_handleError err if err? #opts setting failed
+					#opts successfully set -they are not in the queue anymore
 					client.optsSet = yes
+					@optsInQueue = no
 
 				# create transaction: BEGIN, all options, first query, COMMIT
 				@queue = trans.concat @queue
-
-				# console.log @queue
+				@optsInQueue = yes # opts are in the queue of queries
 
 			@emit "ready"
 			@_queuePull()   #process first query in the queue immediately
@@ -728,7 +732,7 @@ class Db extends EventEmitter
 		@transaction.push removed if @inTransaction and removed?
 		@_transStop() if @inTransaction and @transaction.isEmpty() #transaction done
 		if not @inTransaction and @done? and removed?
-			@_clearAndPoolClient("DONE: " + removed.query)
+			@_clearAndPoolClient()
 			@state = "offline"
 
 		if @queue.length > 0

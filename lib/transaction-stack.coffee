@@ -77,13 +77,18 @@ class TransactionStack
 	###
 	Prints content of both transaction buffers
 	###
-	print: () =>
-		console.log "[STACK]"
+	toString: () =>
+		res = "[STACK]\n"
+		
 		for q in @stack
-			console.log q
-		console.log "[QUEUE]"
+			res += "#{q.type} : #{q.pos}\n"
+
+		res += "[QUEUE]\n"
+
 		for p in @queue
-			console.log p
+			res += "#{p.toString()}\n"
+
+		return res
 
 
 ### ------- Export ------- ###

@@ -45,6 +45,31 @@ describe "Querying functions", ->
 				return done err if err?
 				return done() if res.length is 3
 
+	describe "insertOne", ->
+		it "returns result on right query", (done) ->
+			db.insertOne "numbers", number: 99, (err, res) ->
+				return done err if err?
+				return done() if (res? and res.number is 99)
+
+		it "returns error on wrong query", (done) ->
+			db.insertOne "table", value: 0, (err, res) ->
+				return done() if err?
+
+		it "successful sequence of 100 fast queries", (done) ->
+			INSERT_COUNT = 100
+
+			for i in [0...INSERT_COUNT]
+				db.insertOne "numbers", number: i #ignore error
+
+			#get number of inserts
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
+				return done err if err?
+				return done() if (parseInt res.count, 10) is INSERT_COUNT
+		it "multiple rows by one query", (done) ->
+			db.insertOne "numbers", [{number: 1}, {number: 2}, {number: 3}], (err, res) ->
+				return done err if err?
+				return done() if res.number is 1
+
 
 	describe "delete", ->
 		it "returns result on right query", (done) ->
@@ -89,6 +114,48 @@ describe "Querying functions", ->
 				return done err if err?
 				return done() if (parseInt res.count, 10) is 0
 
+	describe "deleteOne", ->
+		it "returns result on right query", (done) ->
+			db.insert "numbers", number: 0
+			db.insert "numbers", number: 1
+			db.insert "numbers", number: 2
+			db.insert "numbers", number: 3
+
+			db.deleteOne "numbers", "number = $1", [0], (err, res)->
+				return done err if err?
+
+			db.deleteOne "numbers", "number = 1", (err, res)->
+				return done err if err?
+
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
+				return done err if err?
+				return done new Error "test entry deletion failed" if (parseInt res.count, 10) isnt 2
+
+			db.deleteOne "numbers", (err, res)->
+				return done err if err?
+				return done new Error "test entry deletion failed" unless (res.number is 2 or res.number is 3)
+
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) ->
+				return done err if err?
+				return done() if (parseInt res.count, 10) is 0
+
+		it "returns error on wrong query", (done) ->
+			db.deleteOne "table", (err, res) ->
+				return done() if err?
+
+		it "successful sequence of 100 fast queries", (done) ->
+			INSERT_COUNT = 100
+
+			for i in [0...INSERT_COUNT]
+				db.insert "numbers", number: i #ignore error
+
+			for j in [0...INSERT_COUNT]
+				db.deleteOne "numbers", "number = $1", [j] #ignore error
+
+			#get number of inserts
+			db.queryOne "SELECT COUNT(*) FROM numbers;", (err, res) -> #ignore error
+				return done err if err?
+				return done() if (parseInt res.count, 10) is 0
 
 	describe "update", ->
 		it "returns result on right query", (done) ->
@@ -109,6 +176,30 @@ describe "Querying functions", ->
 
 			for j in [0...UPDATE_COUNT]
 				db.update "numbers", number: 0, "number = #{j}" #ignore error
+
+			db.queryOne "SELECT SUM(number) FROM numbers;", (err, res) -> #ignore error
+				return done err if err?
+				return done() if (parseInt res.sum, 10) is 0
+
+	describe "updateOne", ->
+		it "returns result on right query", (done) ->
+			db.insert "numbers", number: 99
+			db.updateOne "numbers", number: 0, "number = $1", [99], (err, res) ->
+				return done err if err?
+				return done() if (res? and res.number is 0)
+
+		it "returns error on wrong query", (done) ->
+			db.updateOne "table", value: 0, "value = 99", (err, res) ->
+				return done() if err?
+
+		it "successful sequence of 100 fast queries", (done) ->
+			UPDATE_COUNT = INSERT_COUNT = 100
+
+			for i in [0...INSERT_COUNT]
+				db.insert "numbers", number: i #ignore error
+
+			for j in [0...UPDATE_COUNT]
+				db.updateOne "numbers", number: 0, "number = #{j}" #ignore error
 
 			db.queryOne "SELECT SUM(number) FROM numbers;", (err, res) -> #ignore error
 				return done err if err?
@@ -140,6 +231,36 @@ describe "Querying functions", ->
 
 			for j in [0...UPSERT_COUNT]
 				db.upsert "numbers", number: 0, "number = $1", [j] #ignore error
+
+			db.queryOne "SELECT COUNT(number) FROM numbers;", (err, res) -> #ignore error
+				return done err if err?
+				return done() if (parseInt res.count, 10) is UPSERT_COUNT
+
+	describe "upsertOne", ->
+		# insert, and uppsert causing one insert followed by two updates expected
+		it "returns result on right query", (done) ->
+			db.insert "numbers", number: 0 #ignore error
+			db.upsertOne "numbers", number: 1, "number = $1", [2], (err, res) ->
+				return done err if err?
+				return done new Error "upsert-insert failed" unless res.number is 1
+					
+				db.upsertOne "numbers", number: 0, "number = $1 OR number = $2", [0, 1], (err, res) ->
+					return done err if err?
+					return done new Error "upsert-insert failed" unless res.number is 0
+					return done()
+
+		it "returns error on wrong query", (done) ->
+			db.upsertOne "table", value: 0, "value = 99", (err, res) ->
+				return done() if err?
+
+		it "successful sequence of 100 fast queries", (done) ->
+			UPSERT_COUNT = 50
+
+			for i in [0...UPSERT_COUNT]
+				db.upsertOne "numbers", number: i, "number = #{i}" #ignore error
+
+			for j in [0...UPSERT_COUNT]
+				db.upsertOne "numbers", number: 0, "number = $1", [j] #ignore error
 
 			db.queryOne "SELECT COUNT(number) FROM numbers;", (err, res) -> #ignore error
 				return done err if err?
