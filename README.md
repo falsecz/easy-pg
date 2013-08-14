@@ -275,3 +275,10 @@ Minor errors were mentioned in the text above. All messages sent by PostgreSQL s
 * <b>57</b> Operator Intervention
 
 These 3 types of errors only forces the client to restart current connection and continue in query queue processing later. More information about PostgreSQL error codes can be found <a href="http://www.postgresql.org/docs/9.2/static/errcodes-appendix.html">here</a>.
+
+###Notes and Tips
+
+Easy-pg doesn't support queries containing <b>IN</b> and binded array of parameters right now, but you can use akin query instead.
+
+    epg.queryAll "SELECT * FROM numbers WHERE number IN ($1)", [[1, 2, 3]], () -> ... not supported
+    epg.queryAll "SELECT * FROM numbers WHERE number = ANY ($1)", [[1, 2, 3]], () -> ... works well
