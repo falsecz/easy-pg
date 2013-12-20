@@ -278,6 +278,10 @@ These 3 types of errors only forces the client to restart current connection and
 
 ###Notes and Tips
 
+Sometimes, pg returns null instead of date-time values. It's not a mistake, it really does. To solve this issue, simply append following option into easy-pg connection string:
+
+    "?dateStyle=iso, mdy"
+
 Easy-pg doesn't support queries containing <b>IN</b> and binded array of parameters right now, but you can use akin query instead.
 
     epg.queryAll "SELECT * FROM numbers WHERE number IN ($1)", [[1, 2, 3]], () -> ... not supported
