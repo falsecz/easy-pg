@@ -56,7 +56,7 @@ class QueryObject
 		"QueryAll" : (client, query, values, done) =>
 			client.query query, values, (err, result) =>
 				result = result?.rows
-				result?= null
+				result?= []
 				return done err, result
 
 		#return only the first row of the response
