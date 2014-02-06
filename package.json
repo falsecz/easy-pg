@@ -1,6 +1,6 @@
 {
   "name": "easy-pg",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "scripts": {
     "test": "make test-js; make test-native",
     "lint": "coffeelint --f coffeelint.json *.coffee lib/* test/*"
@@ -27,8 +27,8 @@
     "coffee-script": "~1.6.3"
   },
   "dependencies": {
-    "pg": "~2.6.2",
+    "pg": "~2.11.1",
     "debug": "~0.7.2",
-    "glob": "~3.2.1"
+    "glob": "~3.2.8"
   }
 }
