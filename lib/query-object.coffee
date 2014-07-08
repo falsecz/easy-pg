@@ -32,9 +32,17 @@ class QueryObject
 	###
 	callBy: (client) =>
 		start = new Date()
-		@_queryCall[@type] client, @query, @values, =>
-			debug "just called", @toString(), "in", (new Date()-start), "ms"
-			@done arguments...
+		if @type isnt "QuerySequence"
+			done = (err, res)=>
+				debug "calling #{@toString()} in #{new Date() - start}ms"
+				@done err, res
+		else
+			done = @done.map (d)=>
+				(err, res)=>
+					debug "calling #{@toString()} in #{new Date() - start}ms"
+					d err, res
+
+		@_queryCall[@type] client, @query, @values, done
 
 
 	###
