@@ -31,8 +31,10 @@ class QueryObject
 	@requires "client" pgdb connection client
 	###
 	callBy: (client) =>
-		debug "calling", @toString()
-		@_queryCall[@type] client, @query, @values, @done
+		start = new Date()
+		@_queryCall[@type] client, @query, @values, =>
+			debug "just called", @toString(), "in", (new Date()-start), "ms"
+			@done arguments...
 
 
 	###
