@@ -1,6 +1,6 @@
 {
   "name": "easy-pg",
-  "version": "0.3.4",
+  "version": "1.0.0",
   "scripts": {
     "test": "make test-js; make test-native",
     "lint": "coffeelint --f coffeelint.json *.coffee lib/* test/*"
@@ -21,6 +21,9 @@
     "client"
   ],
   "license": "BSD",
+  "engines": {
+    "node": "0.10.x",
+  },
   "devDependencies": {
     "mocha": "~1.12.0",
     "chai": "~1.7.1",
