@@ -605,7 +605,7 @@ class Db extends EventEmitter
 
 	_clientError: (err) => #try to connect again immediately
 		return @_handleError err #new Error "connection lost..."
-		@_tryToConnect()
+		# @_tryToConnect()
 
 	_clientEnd: () =>
 		@emit "end"
