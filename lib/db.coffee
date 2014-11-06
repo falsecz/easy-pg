@@ -38,7 +38,7 @@ class Db extends EventEmitter
 			client._tryToConnect() if val is "no" or val is "false"
 		#conn.options.poolSize
 		poolSize: (client, val) =>
-			@poolSize = val
+			client.poolSize = val
 		#conn.options.dateStyle
 		dateStyle: (client, val) =>
 			client._optsPush "QueryRaw", "SET DATESTYLE = #{val}", (err, res) =>
