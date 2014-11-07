@@ -1,6 +1,6 @@
 {
   "name": "easy-pg",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": {
     "test": "make test-js; make test-native",
     "lint": "coffeelint --f coffeelint.json *.coffee lib/* test/*"
@@ -25,15 +25,15 @@
     "node": "0.10.x"
   },
   "devDependencies": {
-    "mocha": "~1.12.0",
-    "chai": "~1.7.1"
+    "mocha": "~2.0.1",
+    "chai": "~1.9.2"
   },
   "dependencies": {
     "chai": "^1.9.1",
     "coffee-script": "^1.7.1",
-    "debug": "^1.0.2",
+    "debug": "^2.1.0",
     "glob": "^4.0.3",
-    "mocha": "^1.12.1",
+    "mocha": "^2.0.1",
     "pg": "^3.3.0"
   }
 }
