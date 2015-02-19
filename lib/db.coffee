@@ -734,11 +734,12 @@ class Db extends EventEmitter
 		@_transStop() if @inTransaction and @transaction.isEmpty() #transaction done
 		if not @inTransaction and @done? and removed?
 			@_clearAndPoolClient()
+			@state = "offline"
 
 		if @queue.length > 0
 			@queue[0].callBy @client if @state is "online"
 			@_tryToConnect() if @state is "offline"
-		else
+		else if not @inTransaction
 			@state = "offline"
 
 

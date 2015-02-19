@@ -34,12 +34,12 @@ class QueryObject
 		start = new Date()
 		if @type isnt "QuerySequence"
 			done = (err, res)=>
-				debug "calling #{@toString()} in #{new Date() - start}ms"
+				debug "connection[#{client.processID}] calling #{@toString()} in #{new Date() - start}ms"
 				@done err, res
 		else
 			done = @done.map (d)=>
 				(err, res)=>
-					debug "calling #{@toString()} in #{new Date() - start}ms"
+					debug "connection[#{client.processID}] calling #{@toString()} in #{new Date() - start}ms"
 					d err, res
 
 		@_queryCall[@type] client, @query, @values, done
@@ -84,7 +84,7 @@ class QueryObject
 					return _handleError client, dones, err if err?
 					client.query "COMMIT", (err, res) =>
 						dones[dones.length-1] err, result
-	
+
 	_handleError= (client, dones, error) =>
 		client.query "ROLLBACK", (err, res) =>
 			dones[dones.length-1] error
