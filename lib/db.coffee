@@ -63,7 +63,6 @@ class Db extends EventEmitter
 	###
 	constructor: (conn, pg) ->
 		@pg = pg
-		@pg.on 'error', @_handleError
 		@poolSize = 10
 		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
