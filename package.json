@@ -25,16 +25,16 @@
     "node": ">=4"
   },
   "devDependencies": {
-    "mocha": "~2.0.1",
-    "chai": "~1.9.2",
-    "coffee-script": "^1.7.1"
+    "chai": "^3.5.0",
+    "coffee-script": "^1.7.1",
+    "mocha": "^2.5.3"
   },
   "peerDependencies": {
     "pg": "6.x.x"
   },
   "dependencies": {
-    "async": "^0.9.0",
+    "async": "^1.5.2",
     "debug": "^2.1.0",
-    "glob": "^4.0.3"
+    "glob": "^7.0.5"
   }
 }

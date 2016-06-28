@@ -5,7 +5,11 @@ compile:
 test: compile test-js
 
 publish:
-	npm publish --tag 2.0.0
+	npm version patch
+	git push origin master
+	git push origin `git describe` #push tag
+	npm publish
+
 # all:
 # 	@npm install
 
