@@ -6,7 +6,8 @@ easy-pg is "easy to use" deferred PostgreSQL client for node.js with possibility
 
 ##Installation
 
-    npm install easy-pg
+    npm install -S easy-pg
+    npm install -S pg # peer dependency
 
 ##Examples
 
