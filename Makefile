@@ -1,7 +1,13 @@
+compile:
+	 ./node_modules/.bin/coffee -o lib -c src/*.coffee
 
 
-all:
-	@npm install
+test: compile test-js
+
+publish:
+	npm publish --tag 2.0.0
+# all:
+# 	@npm install
 
 test-js:
 	@echo '>>>>>> testing pure javascript driver'
