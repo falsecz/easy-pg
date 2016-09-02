@@ -1,4 +1,4 @@
-pg = if process.env.NATIVE then require("../").native else require "../"
+pg = require "../"
 
 connOpts = "?lazy=no&dateStyle=iso, mdy&searchPath=public&poolSize=1"
 connectionStr = "pg://postgres@localhost/myapp_test" + connOpts
@@ -243,7 +243,7 @@ describe "Querying functions", ->
 			db.upsertOne "numbers", number: 1, "number = $1", [2], (err, res) ->
 				return done err if err?
 				return done new Error "upsert-insert failed" unless res.number is 1
-					
+
 				db.upsertOne "numbers", number: 0, "number = $1 OR number = $2", [0, 1], (err, res) ->
 					return done err if err?
 					return done new Error "upsert-insert failed" unless res.number is 0
