@@ -1,6 +1,6 @@
 {
   "name": "easy-pg",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "scripts": {
     "test": "make test",
     "lint": "coffeelint --f coffeelint.json *.coffee lib/* test/*"
