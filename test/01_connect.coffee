@@ -1,4 +1,4 @@
-pg = if process.env.NATIVE then require("../").native else require "../"
+pg = require "../"
 
 connectionStr = "pg://postgres@127.0.0.1:5432/myapp_test"
 connection =

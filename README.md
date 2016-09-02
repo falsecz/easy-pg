@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/falsecz/easy-pg.png?branch=master)](https://travis-ci.org/falsecz/easy-pg)
 [![Dependency Status](https://david-dm.org/falsecz/easy-pg.png)](https://david-dm.org/falsecz/easy-pg)
 
-easy-pg is "easy to use" deferred PostgreSQL client for node.js with possibility of using native libpq bindings and providing some frequently used querying functions. It prevents queries from not being processed due to unexpected <a href="#acceptable-errors">minor errors</a> such as temporary loss of connection. Easy-pg stacks queries during transactions as well to revive whole transaction in the case of interrupted connection.
+easy-pg is "easy to use" deferred PostgreSQL client for node.js providing some frequently used querying functions. It prevents queries from not being processed due to unexpected <a href="#acceptable-errors">minor errors</a> such as temporary loss of connection. Easy-pg stacks queries during transactions as well to revive whole transaction in the case of interrupted connection.
 
 ##Installation
 
@@ -16,7 +16,6 @@ Simple example of connecting to postgres instance, running a query and disconnec
 
 ```coffeescript
 epg = require "easy-pg"
-# epg = require("easy-pg").native -to use native libpq bindings
 
 client = epg "pg://postgres@localhost/myapp_test"
 

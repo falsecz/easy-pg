@@ -59,7 +59,7 @@ class Db extends EventEmitter
 	opts.lazy = false makes db connection star immediately
 	@requires 	"conn" - connection string or object { user,
 				password, host, port, db, options{} }
-				"pg" - pure JavaScript or native libpq binding
+				"pg" - pure JavaScript binding
 	###
 	constructor: (conn, pg) ->
 		@pg = pg

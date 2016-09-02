@@ -30,7 +30,7 @@
     "mocha": "^2.5.3"
   },
   "peerDependencies": {
-    "pg": "6.x.x"
+    "pg": "5.x.x"
   },
   "dependencies": {
     "async": "^1.5.2",
