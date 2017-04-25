@@ -66,7 +66,6 @@ class Db extends EventEmitter
 		@poolSize = 10
 		@queue = []		#queue for queries
 		@optsQueue = [] #queue with options queries processed just on connection
-		@optsInQueue = no #yes if opts-queue is inserted into query-queue
 
 		@transaction = new TransactionStack() #stack for transactions
 
@@ -586,7 +585,7 @@ class Db extends EventEmitter
 			@state = "online"
 
 			# set all opts if there are some and they are not in the query-queue
-			if @optsQueue.length > 0 and @optsInQueue is no and not client.optsSet?
+			if @optsQueue.length > 0 and not client.optsInQueue and not client.optsSet
 				trans = []
 				trans.push @_createQueryObject "QueryRaw", "BEGIN"
 				trans = trans.concat @optsQueue
@@ -594,11 +593,11 @@ class Db extends EventEmitter
 					return @_handleError err if err? #opts setting failed
 					#opts successfully set -they are not in the queue anymore
 					client.optsSet = yes
-					@optsInQueue = no
+					client.optsInQueue = no
 
 				# create transaction: BEGIN, all options, first query, COMMIT
 				@queue = trans.concat @queue
-				@optsInQueue = yes # opts are in the queue of queries
+				client.optsInQueue = yes # opts are in the queue of queries
 
 			@emit "ready"
 			@_queuePull()   #process first query in the queue immediately
