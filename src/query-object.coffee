@@ -59,6 +59,8 @@ class QueryObject
 	_queryCall:
 		#return response in the original form
 		"QueryRaw" : (client, query, values, done) =>
+			client.inTransaction = yes if query is 'BEGIN'
+			client.inTransaction = no if query is 'COMMIT'
 			client.query query, values, (err, result) =>
 				return done err, result
 
@@ -78,12 +80,16 @@ class QueryObject
 
 		#return response in the original form
 		"QuerySequence" : (client, queries, values, dones) =>
-			client.query "BEGIN", (err, res) =>
-				return _handleError client, dones, err if err?
+			if client.inTransaction
 				_callQuery client, queries, values, dones, 0, (err, result) =>
+					dones[dones.length-1] err, result
+			else
+				client.query "BEGIN", (err, res) =>
 					return _handleError client, dones, err if err?
-					client.query "COMMIT", (err, res) =>
-						dones[dones.length-1] err, result
+					_callQuery client, queries, values, dones, 0, (err, result) =>
+						return _handleError client, dones, err if err?
+						client.query "COMMIT", (err, res) =>
+							dones[dones.length-1] err, result
 
 	_handleError= (client, dones, error) =>
 		client.query "ROLLBACK", (err, res) =>
